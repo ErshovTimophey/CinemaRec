@@ -87,7 +87,7 @@ const MovieRecommendations = ({ email }) => {
     }
   };
 
-  if (!hasPreferences) {
+  if (!hasPreferences && !showPreferences) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -106,22 +106,46 @@ const MovieRecommendations = ({ email }) => {
             Set Preferences
           </button>
         </div>
-
-        {showPreferences && (
-          <div className="mt-6">
-            <PreferencesForm
-              email={email}
-              onPreferencesUpdated={async () => {
-                  setShowPreferences(false);
-                  await fetchRecommendations();
-                  setHasPreferences(true);
-              }}
-            />
-          </div>
-        )}
       </motion.div>
     );
   }
+
+
+//  if (!hasPreferences) {
+//    return (
+//      <motion.div
+//        initial={{ opacity: 0, y: 20 }}
+//        animate={{ opacity: 1, y: 0 }}
+//        className="p-4"
+//      >
+//        <div className="bg-white p-6 rounded-lg shadow-lg text-center">
+//          <h2 className="text-2xl font-bold mb-4">Welcome to CinemaRec!</h2>
+//          <p className="text-lg mb-6">
+//            To get personalized movie recommendations, please set your preferences first.
+//          </p>
+//          <button
+//            onClick={() => setShowPreferences(true)}
+//            className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+//          >
+//            Set Preferences
+//          </button>
+//        </div>
+//
+//        {showPreferences && (
+//          <div className="mt-6">
+//            <PreferencesForm
+//              email={email}
+//              onPreferencesUpdated={async () => {
+//                  setShowPreferences(false);
+//                  await fetchRecommendations();
+//                  setHasPreferences(true);
+//              }}
+//            />
+//          </div>
+//        )}
+//      </motion.div>
+//    );
+//  }
 
   if (loading) {
     return (
@@ -184,8 +208,25 @@ const MovieRecommendations = ({ email }) => {
               email={email}
               onPreferencesUpdated={async () => {
                   setShowPreferences(false);
-                  await fetchRecommendations();
                   setHasPreferences(true);
+                  const maxAttempts = 5;
+                   const delayMs = 1000;
+                    setLoading(true);
+                    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                      await new Promise(resolve => setTimeout(resolve, delayMs));
+                      const response = await axios.get(
+                        `http://localhost:8082/users/${email}/recommendations`
+                      );
+                      if (response.data && response.data.length > 0) {
+                        setLoading(false);
+                        setRecommendations(response.data);
+                        return;
+                      }
+                    }
+
+                    // Последняя попытка если ничего не вернулось
+                    await fetchRecommendations();
+                    setLoading(false);
               }}
             />
             <button
