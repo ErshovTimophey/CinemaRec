@@ -52,11 +52,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
             setSelectedMovies(prefs.favoriteMovies || []);
             setMinRating(prefs.minRating || 7);
 
-            console.log('Тип данных в selectedGenres:', typeof selectedGenres[0]);
-            console.log('Тип данных в selectedActors:', typeof selectedActors[0]);
-            console.log('Тип данных первого жанра из TMDB:', typeof genres[0]?.id);
-            console.log('Тип данных первого актера из TMDB:', typeof actors[0]?.id);
-
             // Загружаем фильмы по ID, чтобы отобразить в SelectedMovies
             if (prefs.favoriteMovies && prefs.favoriteMovies.length > 0) {
               const movieRequests = prefs.favoriteMovies.map(id =>
