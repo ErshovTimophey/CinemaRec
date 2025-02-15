@@ -5,6 +5,7 @@ import lombok.Data;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -17,14 +18,14 @@ public class UserPreferences {
     @Column(name = "email", unique = true)
     private String email;
 
-    @ElementCollection
-    private List<String> favoriteGenres;
+    @OneToMany(mappedBy = "userPreferences", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<FavoriteGenre> favoriteGenres = new ArrayList<>();
 
-    @ElementCollection
-    private List<String> favoriteActors;
+    @OneToMany(mappedBy = "userPreferences", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<FavoriteActor> favoriteActors = new ArrayList<>();
 
-    @ElementCollection
-    private List<String> favoriteMovies;
+    @OneToMany(mappedBy = "userPreferences", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<FavoriteMovie> favoriteMovies = new ArrayList<>();
 
     private Double minRating;
 

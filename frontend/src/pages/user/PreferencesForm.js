@@ -1,4 +1,3 @@
-// PreferencesForm.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -17,50 +16,59 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
   const [searchResults, setSearchResults] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('genres');
+  const [selectedMovieObjects, setSelectedMovieObjects] = useState([]);
+
 
   useEffect(() => {
-    if (!email) return;
+      if (!email) return;
 
-    const fetchInitialData = async () => {
-      try {
-        const tmdbApi = axios.create({
-          baseURL: 'https://api.themoviedb.org/3',
-          headers: {
-            accept: 'application/json',
-            Authorization: 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyZDQ2MmI5MTYxZGM3NDIwMzI0NWVjMDcyOWRmZjM4NyIsIm5iZiI6MTc0NzA2MzAxOC41MzUsInN1YiI6IjY4MjIxMGVhMzJmNzNlMTJlNDczOTNjNyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Xx1dOcNyzFsIMIB3h3hD006NVEoZMFXsF6d7GVlUsTA'
+      const fetchInitialData = async () => {
+        try {
+          const tmdbApi = axios.create({
+                    baseURL: 'https://api.themoviedb.org/3',
+                    headers: {
+                      accept: 'application/json',
+                      Authorization: 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyZDQ2MmI5MTYxZGM3NDIwMzI0NWVjMDcyOWRmZjM4NyIsIm5iZiI6MTc0NzA2MzAxOC41MzUsInN1YiI6IjY4MjIxMGVhMzJmNzNlMTJlNDczOTNjNyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Xx1dOcNyzFsIMIB3h3hD006NVEoZMFXsF6d7GVlUsTA'
+                    }
+          });
+
+          const [genresRes, actorsRes] = await Promise.all([
+            tmdbApi.get('/genre/movie/list'),
+            tmdbApi.get('/person/popular?page=1')
+          ]);
+
+          setGenres(genresRes.data.genres);
+          setActors(actorsRes.data.results);
+
+          const preferencesRes = await axios.get(`http://localhost:8082/users/${email}/preferences`);
+          const prefs = preferencesRes.data;
+
+          if (prefs) {
+            setSelectedGenres(prefs.favoriteGenres || []);
+            setSelectedActors(prefs.favoriteActors || []);
+            setSelectedMovies(prefs.favoriteMovies || []);
+            setMinRating(prefs.minRating || 7);
+
+            // Загружаем фильмы по ID, чтобы отобразить в SelectedMovies
+            if (prefs.favoriteMovies && prefs.favoriteMovies.length > 0) {
+              const movieRequests = prefs.favoriteMovies.map(id =>
+                tmdbApi.get(`/movie/${id}`).then(res => res.data).catch(() => null)
+              );
+              const movieResults = await Promise.all(movieRequests);
+              const validMovies = movieResults.filter(m => m !== null);
+              setSelectedMovieObjects(validMovies);
+            }
           }
-        });
-
-        const [genresRes, popularActorsRes] = await Promise.all([
-          tmdbApi.get('/genre/movie/list'),
-          tmdbApi.get('/person/popular?page=1')
-        ]);
-
-        setGenres(genresRes.data.genres);
-                setActors(popularActorsRes.data.results);
-
-        const preferencesRes = await axios.get(`http://localhost:8082/users/${email}/preferences`);
-
-
-
-        if (preferencesRes.data) {
-          setSelectedGenres(preferencesRes.data.favoriteGenres || []);
-          setSelectedActors(preferencesRes.data.favoriteActors || []);
-          setSelectedMovies(preferencesRes.data.favoriteMovies || []);
-          setMinRating(preferencesRes.data.minRating || 7);
+        } catch (error) {
+          toast.error('Failed to load data');
+          console.error(error);
+        } finally {
+          setIsLoading(false);
         }
-//        if (onPreferencesUpdated) {
-//              await onPreferencesUpdated(); // обязательно дожидаемся
-//            }
-      } catch (error) {
-        toast.error('Failed to load initial data');
-      } finally {
-        setIsLoading(false);
-      }
-    };
+      };
 
-    fetchInitialData();
-  }, [email]);
+      fetchInitialData();
+    }, [email]);
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
@@ -99,11 +107,19 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
 
   const handleMovieChange = (movieId, isChecked) => {
     setSelectedMovies(prev =>
-      isChecked
-        ? [...prev, movieId]
-        : prev.filter(id => id !== movieId)
+      isChecked ? [...prev, movieId] : prev.filter(id => id !== movieId)
     );
+
+    if (isChecked) {
+      const movie = searchResults.find(m => m.id === movieId);
+      if (movie && !selectedMovieObjects.some(m => m.id === movieId)) {
+        setSelectedMovieObjects(prev => [...prev, movie]);
+      }
+    } else {
+      setSelectedMovieObjects(prev => prev.filter(m => m.id !== movieId));
+    }
   };
+
 
   const handleSavePreferences = async () => {
     try {
@@ -297,26 +313,34 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
             </div>
           )}
 
-          {selectedMovies.length > 0 && (
+          {selectedMovieObjects.length > 0 && (
             <div>
               <h3 className="text-md font-semibold mb-2">Selected Movies</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {searchResults
-                  .filter(movie => selectedMovies.includes(movie.id))
-                  .map(movie => (
-                    <div key={movie.id} className="flex flex-col items-center p-2 border rounded">
-                      <img
-                        src={
-                          movie.poster_path
-                            ? `https://image.tmdb.org/t/p/w200${movie.poster_path}`
-                            : 'https://via.placeholder.com/200x300?text=No+Image'
-                        }
-                        alt={movie.title}
-                        className="w-full h-40 object-cover mb-2 rounded"
-                      />
-                      <span className="text-center text-sm">{movie.title}</span>
-                    </div>
-                  ))}
+                {selectedMovieObjects.map(movie => (
+                  <div key={movie.id} className="relative flex flex-col items-center p-2 border rounded">
+                    <button
+                      onClick={() => {
+                        // Удаляем фильм из selectedMovies и selectedMovieObjects
+                        setSelectedMovies(prev => prev.filter(id => id !== movie.id));
+                        setSelectedMovieObjects(prev => prev.filter(m => m.id !== movie.id));
+                      }}
+                      className="absolute top-1 right-1 text-gray-600 hover:text-red-600 focus:outline-none"
+                      aria-label={`Remove ${movie.title}`}
+                      style={{ background: 'rgba(255,255,255,0.8)', borderRadius: '50%', width: 24, height: 24, display: 'flex', justifyContent: 'center', alignItems: 'center' }}
+                    >
+                      ✕
+                    </button>
+                    <img
+                      src={movie.poster_path
+                        ? `https://image.tmdb.org/t/p/w200${movie.poster_path}`
+                        : 'https://via.placeholder.com/200x300?text=No+Image'}
+                      alt={movie.title}
+                      className="w-full h-40 object-cover mb-2 rounded"
+                    />
+                    <span className="text-center text-sm mt-1">{movie.title}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )}

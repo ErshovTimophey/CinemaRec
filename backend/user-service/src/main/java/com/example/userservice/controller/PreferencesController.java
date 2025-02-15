@@ -1,5 +1,6 @@
 package com.example.userservice.controller;
 
+import com.example.userservice.dto.GetPreferencesDTO;
 import com.example.userservice.dto.PreferencesDTO;
 import com.example.userservice.model.UserPreferences;
 import com.example.userservice.service.PreferencesService;
@@ -22,9 +23,20 @@ public class PreferencesController {
         return ResponseEntity.ok(preferencesService.updatePreferences(email, dto));
     }
 
+//    @GetMapping
+//    public ResponseEntity<UserPreferences> getPreferences(@PathVariable String email) {
+//        System.out.println(email + " Юзер айди");
+//        return ResponseEntity.ok(preferencesService.getPreferences(email));
+//    }
+
     @GetMapping
-    public ResponseEntity<UserPreferences> getPreferences(@PathVariable String email) {
-        System.out.println(email + " Юзер айди");
-        return ResponseEntity.ok(preferencesService.getPreferences(email));
+    public ResponseEntity<?> getPreferences(@PathVariable String email) {
+        try {
+            UserPreferences preferences = preferencesService.getPreferences(email);
+            return ResponseEntity.ok(GetPreferencesDTO.fromEntity(preferences));
+        } catch (RuntimeException e) {
+            return ResponseEntity.notFound().build();
+        }
     }
+
 }
