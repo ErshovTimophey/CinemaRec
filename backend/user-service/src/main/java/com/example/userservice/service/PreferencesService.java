@@ -1,17 +1,14 @@
 package com.example.userservice.service;
 
+import com.example.dto.PreferencesEvent;
 import com.example.userservice.dto.PreferencesDTO;
-import com.example.userservice.dto.PreferencesEvent;
 import com.example.userservice.model.UserPreferences;
 import com.example.userservice.repository.PreferencesRepository;
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -29,6 +26,7 @@ public class PreferencesService {
         preferences.setEmail(email);
         preferences.setFavoriteGenres(dto.getFavoriteGenres());
         preferences.setFavoriteActors(dto.getFavoriteActors());
+        preferences.setFavoriteMovies(dto.getFavoriteMovies());
         preferences.setMinRating(dto.getMinRating());
 
         UserPreferences saved = preferencesRepository.save(preferences);
@@ -37,8 +35,10 @@ public class PreferencesService {
                 email,
                 dto.getFavoriteGenres(),
                 dto.getFavoriteActors(),
+                dto.getFavoriteMovies(),
                 dto.getMinRating()
         );
+        System.out.println("ОТПРАВКА В КАФКУ");
         kafkaTemplate.send("user-preferences", event);
         return saved;
     }

@@ -17,12 +17,12 @@ public class UserService {
     @Autowired
     private final RecommendationClient recommendationClient;
 
-    public User getUserById(Long id) {
-        return userRepository.findById(id)
+    public User getUserByEmail(String email) {
+        return userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
-    public List<Movie> getUserRecommendations(String userId) {
-        return recommendationClient.getRecommendations(userId);
+    public List<Movie> getUserRecommendations(String email) {
+        return recommendationClient.getRecommendations(email);
     }
 }

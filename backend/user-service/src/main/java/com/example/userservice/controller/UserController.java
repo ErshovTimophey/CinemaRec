@@ -18,14 +18,14 @@ public class UserController {
     private final UserService userService;
 
     @GetMapping("/{id}")
-    public ResponseEntity<User> getUser(@PathVariable Long id) {
-        System.out.println(id + " АЙДИ");
-        return ResponseEntity.ok(userService.getUserById(id));
+    public ResponseEntity<User> getUser(@PathVariable String email) {
+        System.out.println(email+ " АЙДИ");
+        return ResponseEntity.ok(userService.getUserByEmail(email));
     }
 
     @GetMapping("/{email}/recommendations")
-    public ResponseEntity<List<Movie>> getRecommendations(@PathVariable String userId) {
-        System.out.println(userId + " ЮЗЕР АЙДИ");
-        return ResponseEntity.ok(userService.getUserRecommendations(userId));
+    public ResponseEntity<List<Movie>> getRecommendations(@PathVariable String email) {
+        System.out.println(email + " ЮЗЕР АЙДИ");
+        return ResponseEntity.ok(userService.getUserRecommendations(email));
     }
 }

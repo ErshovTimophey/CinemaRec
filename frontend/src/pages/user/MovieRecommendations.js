@@ -40,9 +40,13 @@ const MovieRecommendations = ({ email }) => {
   };
 
   useEffect(() => {
+    if (!email) return;
+
     checkUserPreferences();
     fetchRecommendations();
   }, [email]);
+
+  //ТАКОГО ЭНДПОИНТА НЕТ
 
   const handleMarkAsWatched = async (movieId) => {
     try {
@@ -61,7 +65,7 @@ const MovieRecommendations = ({ email }) => {
       toast.error('Failed to update');
     }
   };
-
+    // НЕ ДОБАВЛЕН ЭНДПОИНТ!!!
   const handleRefreshRecommendations = async () => {
     try {
       await axios.post(
@@ -101,8 +105,8 @@ const MovieRecommendations = ({ email }) => {
               email={email}
               onPreferencesUpdated={() => {
                 setShowPreferences(false);
-                setHasPreferences(true);
                 fetchRecommendations();
+                setHasPreferences(true);
               }}
             />
           </div>

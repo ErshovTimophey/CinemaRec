@@ -10,6 +10,6 @@ import java.util.List;
 @FeignClient(name = "recommendation-service", url = "${feign.client.config.recommendation-service.url}")
 public interface RecommendationClient {
 
-    @GetMapping("/api/recommendations/{userId}")
-    List<Movie> getRecommendations(@PathVariable String userId);
+    @GetMapping("/api/recommendations/{email}")
+    List<Movie> getRecommendations(@PathVariable String email);
 }

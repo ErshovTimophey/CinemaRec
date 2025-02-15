@@ -98,7 +98,7 @@ const Dashboard = () => {
 
                 {/* Main Content */}
                 <div className="flex-1 p-8">
-                    {activeTab === 'recommendations' && <MovieRecommendations email={email}/>}
+                    {activeTab === 'recommendations' && email && <MovieRecommendations email={email} />}
                     {activeTab === 'statistics' && <Statistics />}
                     {activeTab === 'reviews' && <Reviews />}
                     {activeTab === 'quizzes' && <Quizzes />}

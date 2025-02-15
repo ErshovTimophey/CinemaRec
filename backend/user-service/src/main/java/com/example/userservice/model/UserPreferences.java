@@ -23,6 +23,9 @@ public class UserPreferences {
     @ElementCollection
     private List<String> favoriteActors;
 
+    @ElementCollection
+    private List<String> favoriteMovies;
+
     private Double minRating;
 
     @UpdateTimestamp

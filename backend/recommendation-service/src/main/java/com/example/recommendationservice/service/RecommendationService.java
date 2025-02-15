@@ -1,6 +1,6 @@
 package com.example.recommendationservice.service;
 
-import com.example.recommendationservice.dto.PreferencesEvent;
+import com.example.dto.PreferencesEvent;
 import com.example.recommendationservice.dto.TmdbMovie;
 import com.example.recommendationservice.model.Recommendation;
 import com.example.recommendationservice.repository.RecommendationRepository;
@@ -23,6 +23,7 @@ public class RecommendationService {
     @KafkaListener(topics = "user-preferences", groupId = "recommendation-group")
     @Transactional
     public void handlePreferencesEvent(PreferencesEvent event) {
+        System.out.println("ПОЛУЧИЛ ДАННЫЕ ЧЕРЕЗ КАФКА" + event.getEmail());
         log.info("Received preferences event for user: {}", event.getEmail());
 
         // Delete old recommendations

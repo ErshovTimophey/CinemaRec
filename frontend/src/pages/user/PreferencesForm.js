@@ -19,6 +19,8 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
   const [activeTab, setActiveTab] = useState('genres');
 
   useEffect(() => {
+    if (!email) return;
+
     const fetchInitialData = async () => {
       try {
         const tmdbApi = axios.create({
@@ -29,14 +31,17 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
           }
         });
 
-        const [genresRes, popularActorsRes, preferencesRes] = await Promise.all([
+        const [genresRes, popularActorsRes] = await Promise.all([
           tmdbApi.get('/genre/movie/list'),
-          tmdbApi.get('/person/popular?page=1'),
-          axios.get(`http://localhost:8082/users/${email}/preferences`)
+          tmdbApi.get('/person/popular?page=1')
         ]);
 
         setGenres(genresRes.data.genres);
-        setActors(popularActorsRes.data.results);
+                setActors(popularActorsRes.data.results);
+
+        const preferencesRes = await axios.get(`http://localhost:8082/users/${email}/preferences`);
+
+
 
         if (preferencesRes.data) {
           setSelectedGenres(preferencesRes.data.favoriteGenres || []);

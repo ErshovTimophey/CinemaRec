@@ -1,5 +1,6 @@
 package com.example.userservice.config;
 
+import com.example.dto.PreferencesEvent;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,7 +10,6 @@ import org.springframework.kafka.core.DefaultKafkaProducerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.core.ProducerFactory;
 import org.springframework.kafka.support.serializer.JsonSerializer;
-import com.example.userservice.dto.PreferencesEvent;
 
 import java.util.HashMap;
 import java.util.Map;
