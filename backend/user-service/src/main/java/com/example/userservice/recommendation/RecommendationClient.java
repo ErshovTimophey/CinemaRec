@@ -1,6 +1,6 @@
 package com.example.userservice.recommendation;
 
-import com.example.userservice.model.Movie;
+import com.example.userservice.dto.RecommendationDto;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -11,5 +11,5 @@ import java.util.List;
 public interface RecommendationClient {
 
     @GetMapping("/api/recommendations/{email}")
-    List<Movie> getRecommendations(@PathVariable String email);
+    List<RecommendationDto> getRecommendations(@PathVariable String email);
 }

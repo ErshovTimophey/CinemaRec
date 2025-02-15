@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 @Service
@@ -48,6 +49,23 @@ public class RecommendationService {
                     rec.setRating(movie.getVoteAverage());
                     rec.setOverview(movie.getOverview());
                     rec.setWatched(false);
+
+                    // Загружаем жанры (если ещё не загружены)
+                    tmdbService.loadGenresIfNeeded();
+
+                    // НАДО ПРОВЕРИТЬ почему так много ids в списке
+                    System.out.println(movie.getGenreIds());
+                    // Преобразуем genre_ids в строку с названиями жанров
+                    List<String> genreNames = movie.getGenreIds().stream()
+                            .map(tmdbService.getGenreMap()::get)
+                            .filter(Objects::nonNull)
+                            .toList();
+                    if (!genreNames.isEmpty()) {
+                        rec.setGenres(String.join(", ", genreNames));
+                        System.out.println(rec.getGenres() + " ЖАНРЫ");
+                    } else {
+                        rec.setGenres(null);
+                    }
                     return rec;
                 })
                 .collect(Collectors.toList());

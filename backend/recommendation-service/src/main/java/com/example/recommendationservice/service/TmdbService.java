@@ -1,6 +1,7 @@
 package com.example.recommendationservice.service;
 
         import com.example.recommendationservice.dto.TmdbMovie;
+        import lombok.Getter;
         import lombok.extern.slf4j.Slf4j;
         import org.springframework.beans.factory.annotation.Value;
         import org.springframework.http.*;
@@ -26,12 +27,15 @@ public class TmdbService {
     private final RestTemplate restTemplate;
     private final HttpHeaders headers;
 
+    @Getter
+    private final Map<Integer, String> genreMap = new HashMap<>();
+
     public TmdbService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
 
         headers = new HttpHeaders();
         headers.set("accept", "application/json");
-        headers.set("Authorization", tmdbApiKey);
+        headers.set("Authorization", "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyZDQ2MmI5MTYxZGM3NDIwMzI0NWVjMDcyOWRmZjM4NyIsIm5iZiI6MTc0NzA2MzAxOC41MzUsInN1YiI6IjY4MjIxMGVhMzJmNzNlMTJlNDczOTNjNyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Xx1dOcNyzFsIMIB3h3hD006NVEoZMFXsF6d7GVlUsTA");
     }
 
     public List<TmdbMovie> getRecommendations(List<String> favoriteGenres,
@@ -126,6 +130,7 @@ public class TmdbService {
     }
 
     private TmdbMovie mapToTmdbMovie(Map<String, Object> movieMap) {
+        loadGenresIfNeeded();
         TmdbMovie movie = new TmdbMovie();
         movie.setId((Integer) movieMap.get("id"));
         movie.setTitle((String) movieMap.get("title"));
@@ -136,12 +141,41 @@ public class TmdbService {
                         ((Number) movieMap.get("vote_average")).doubleValue() :
                         0.0
         );
-
         if (movieMap.get("genre_ids") instanceof List<?>) {
-            movie.setGenreIds((List<Integer>) movieMap.get("genre_ids"));
+            List<Integer> ids = (List<Integer>) movieMap.get("genre_ids");
+            movie.setGenreIds(ids);
+
+            List<String> names = ids.stream()
+                    .map(genreMap::get)
+                    .filter(Objects::nonNull)
+                    .toList();
+
+            movie.setGenreNames(names);
         }
 
         return movie;
+    }
+
+    void loadGenresIfNeeded() {
+        if (!genreMap.isEmpty()) return;
+
+        String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
+                .path("/genre/movie/list")
+                .toUriString();
+
+        ResponseEntity<Map> response = restTemplate.exchange(
+                url,
+                HttpMethod.GET,
+                new HttpEntity<>(headers),
+                Map.class
+        );
+
+        if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+            List<Map<String, Object>> genres = (List<Map<String, Object>>) response.getBody().get("genres");
+            for (Map<String, Object> genre : genres) {
+                genreMap.put((Integer) genre.get("id"), (String) genre.get("name"));
+            }
+        }
     }
 
     public String getFullPosterUrl(String posterPath) {

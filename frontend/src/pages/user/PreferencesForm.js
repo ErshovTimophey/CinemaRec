@@ -49,6 +49,9 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
           setSelectedMovies(preferencesRes.data.favoriteMovies || []);
           setMinRating(preferencesRes.data.minRating || 7);
         }
+//        if (onPreferencesUpdated) {
+//              await onPreferencesUpdated(); // обязательно дожидаемся
+//            }
       } catch (error) {
         toast.error('Failed to load initial data');
       } finally {

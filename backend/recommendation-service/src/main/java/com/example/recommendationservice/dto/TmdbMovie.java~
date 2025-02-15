@@ -20,6 +20,7 @@ public class TmdbMovie {
     @JsonProperty("genre_ids")
     private List<Integer> genreIds;
 
+    @JsonProperty("genre_ids")
     private List<String> genreNames;
 
     @JsonProperty("release_date")

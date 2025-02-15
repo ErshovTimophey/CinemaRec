@@ -79,7 +79,7 @@ const MovieRecommendations = ({ email }) => {
       await axios.post(
         `http://localhost:8082/users/${email}/refresh-recommendations`
       );
-      await fetchRecommendations();
+      fetchRecommendations();
       toast.success('Recommendations refreshed!');
     } catch (error) {
       console.error('Error refreshing recommendations:', error);

@@ -1,6 +1,6 @@
 package com.example.userservice.controller;
 
-import com.example.userservice.model.Movie;
+import com.example.userservice.dto.RecommendationDto;
 import com.example.userservice.model.User;
 import com.example.userservice.service.UserService;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +24,7 @@ public class UserController {
     }
 
     @GetMapping("/{email}/recommendations")
-    public ResponseEntity<List<Movie>> getRecommendations(@PathVariable String email) {
+    public ResponseEntity<List<RecommendationDto>> getRecommendations(@PathVariable String email) {
         System.out.println(email + " ЮЗЕР АЙДИ");
         return ResponseEntity.ok(userService.getUserRecommendations(email));
     }
