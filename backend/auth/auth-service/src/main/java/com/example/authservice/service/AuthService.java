@@ -11,7 +11,6 @@ import com.example.authservice.repository.UserRepository;
 import com.example.authservice.util.JwtUtil;
 import com.example.authservice.validator.EmailValidator;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 

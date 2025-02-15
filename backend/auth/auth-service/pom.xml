@@ -81,6 +81,7 @@
 	</dependencies>
 
 	<build>
+		<finalName>authservice</finalName>
 		<plugins>
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
