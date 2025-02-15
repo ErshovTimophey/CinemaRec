@@ -1,0 +1,20 @@
+package com.example.userservice.model;
+
+import jakarta.persistence.*;
+import lombok.Data;
+
+@Entity
+@Table(name = "app_user")
+@Data
+public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String email;
+    private String username;
+
+    @OneToOne(cascade = CascadeType.ALL)
+    @JoinColumn(name = "preferences_id", referencedColumnName = "id")
+    private UserPreferences preferences;
+}
