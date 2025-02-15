@@ -6,6 +6,8 @@ import MovieRecommendations from './MovieRecommendations';
 import Statistics from './Statistics';
 import Reviews from './Reviews';
 import Quizzes from './Quizzes';
+import jwt_decode from 'jwt-decode';
+
 
 const Dashboard = () => {
     const [activeTab, setActiveTab] = useState('recommendations');
@@ -15,6 +17,20 @@ const Dashboard = () => {
         localStorage.removeItem('token');
         navigate('/login');
     };
+
+    const token = localStorage.getItem('token');
+    let email = null;
+
+    if (token) {
+        try {
+            const decoded = jwt_decode(token);
+            console.log('Decoded JWT:', decoded);
+            email = decoded.sub;
+        } catch (error) {
+            console.error('Failed to decode token:', error);
+        }
+    }
+
 
     return (
         <motion.div
@@ -82,7 +98,7 @@ const Dashboard = () => {
 
                 {/* Main Content */}
                 <div className="flex-1 p-8">
-                    {activeTab === 'recommendations' && <MovieRecommendations />}
+                    {activeTab === 'recommendations' && <MovieRecommendations email={email}/>}
                     {activeTab === 'statistics' && <Statistics />}
                     {activeTab === 'reviews' && <Reviews />}
                     {activeTab === 'quizzes' && <Quizzes />}
