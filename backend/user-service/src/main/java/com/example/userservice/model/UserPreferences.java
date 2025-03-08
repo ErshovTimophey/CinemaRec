@@ -27,6 +27,9 @@ public class UserPreferences {
     @OneToMany(mappedBy = "userPreferences", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<FavoriteMovie> favoriteMovies = new ArrayList<>();
 
+    @OneToMany(mappedBy = "userPreferences", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<FavoriteDirector> favoriteDirectors = new ArrayList<>();
+
     private Double minRating;
 
     @UpdateTimestamp

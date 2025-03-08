@@ -262,7 +262,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
 
   const handleSavePreferences = async () => {
     try {
-
+    
       const preferences = {
         favoriteGenres: selectedGenres,
         favoriteActors: selectedActors,

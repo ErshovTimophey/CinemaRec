@@ -1,15 +1,15 @@
 package com.example.recommendationservice.service;
 
-        import com.example.recommendationservice.dto.TmdbMovie;
-        import lombok.Getter;
-        import lombok.extern.slf4j.Slf4j;
-        import org.springframework.beans.factory.annotation.Value;
-        import org.springframework.http.*;
-        import org.springframework.stereotype.Service;
-        import org.springframework.web.client.RestTemplate;
-        import org.springframework.web.util.UriComponentsBuilder;
+import com.example.recommendationservice.dto.TmdbMovie;
+import lombok.Getter;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
-        import java.util.*;
+import java.util.*;
 
 @Service
 @Slf4j
@@ -41,18 +41,27 @@ public class TmdbService {
     public List<TmdbMovie> getRecommendations(List<String> favoriteGenres,
                                               List<String> favoriteActors,
                                               List<String> favoriteMovies,
+                                              List<String> favoriteDirectors,
                                               Double minRating) {
         try {
             Set<TmdbMovie> recommendations = new HashSet<>();
 
+            // Рекомендации по похожим фильмам
             for (String movieId : favoriteMovies) {
                 recommendations.addAll(getSimilarMovies(movieId));
             }
 
+            // Рекомендации по актерам
             for (String actorId : favoriteActors) {
-                recommendations.addAll(getMoviesByActor(actorId));
+                recommendations.addAll(getMoviesByPerson(actorId, "cast"));
             }
 
+            // Рекомендации по режиссерам
+            for (String directorId : favoriteDirectors) {
+                recommendations.addAll(getMoviesByPerson(directorId, "crew"));
+            }
+
+            // Рекомендации по жанрам
             recommendations.addAll(discoverMovies(favoriteGenres, minRating));
 
             return recommendations.stream()
@@ -76,10 +85,10 @@ public class TmdbService {
         return fetchMovies(url);
     }
 
-    private List<TmdbMovie> getMoviesByActor(String actorId) {
+    private List<TmdbMovie> getMoviesByPerson(String personId, String creditType) {
         String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
-                .path("/person/{actorId}/movie_credits")
-                .buildAndExpand(actorId)
+                .path("/person/{personId}/movie_credits")
+                .buildAndExpand(personId)
                 .toUriString();
 
         ResponseEntity<Map> response = restTemplate.exchange(
@@ -90,8 +99,8 @@ public class TmdbService {
         );
 
         if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
-            List<Map<String, Object>> cast = (List<Map<String, Object>>) response.getBody().get("cast");
-            return cast.stream()
+            List<Map<String, Object>> credits = (List<Map<String, Object>>) response.getBody().get(creditType);
+            return credits.stream()
                     .map(this::mapToTmdbMovie)
                     .toList();
         }

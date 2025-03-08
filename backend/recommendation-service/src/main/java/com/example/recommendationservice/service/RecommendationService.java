@@ -35,6 +35,7 @@ public class RecommendationService {
                 event.getFavoriteGenres(),
                 event.getFavoriteActors(),
                 event.getFavoriteMovies(),
+                event.getFavoriteDirectors(),
                 event.getMinRating()
         );
 

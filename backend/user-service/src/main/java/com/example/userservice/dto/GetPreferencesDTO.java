@@ -1,9 +1,6 @@
 package com.example.userservice.dto;
 
-import com.example.userservice.model.UserPreferences;
-import com.example.userservice.model.FavoriteGenre;
-import com.example.userservice.model.FavoriteActor;
-import com.example.userservice.model.FavoriteMovie;
+import com.example.userservice.model.*;
 import lombok.Data;
 
 import java.util.List;
@@ -14,6 +11,7 @@ public class GetPreferencesDTO {
     private List<String> favoriteGenres;
     private List<String> favoriteActors;
     private List<String> favoriteMovies;
+    private List<String> favoriteDirectors;
     private Double minRating;
 
     public static GetPreferencesDTO fromEntity(UserPreferences preferences) {
@@ -26,6 +24,9 @@ public class GetPreferencesDTO {
                 .collect(Collectors.toList()));
         dto.setFavoriteMovies(preferences.getFavoriteMovies().stream()
                 .map(FavoriteMovie::getMovie)
+                .collect(Collectors.toList()));
+        dto.setFavoriteDirectors(preferences.getFavoriteDirectors().stream()
+                .map(FavoriteDirector::getDirector)
                 .collect(Collectors.toList()));
         dto.setMinRating(preferences.getMinRating());
         return dto;

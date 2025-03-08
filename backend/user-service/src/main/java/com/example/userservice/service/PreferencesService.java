@@ -2,10 +2,7 @@ package com.example.userservice.service;
 
 import com.example.dto.PreferencesEvent;
 import com.example.userservice.dto.PreferencesDTO;
-import com.example.userservice.model.FavoriteActor;
-import com.example.userservice.model.FavoriteGenre;
-import com.example.userservice.model.FavoriteMovie;
-import com.example.userservice.model.UserPreferences;
+import com.example.userservice.model.*;
 import com.example.userservice.repository.PreferencesRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -35,6 +32,7 @@ public class PreferencesService {
         preferences.getFavoriteGenres().clear();
         preferences.getFavoriteActors().clear();
         preferences.getFavoriteMovies().clear();
+        preferences.getFavoriteDirectors().clear();
 
         // Добавление новых жанров
         for (String genre : dto.getFavoriteGenres()) {
@@ -52,6 +50,14 @@ public class PreferencesService {
             preferences.getFavoriteActors().add(a);
         }
 
+        // Добавление новых режиссёров
+        for (String director : dto.getFavoriteDirectors()) {
+            FavoriteDirector a = new FavoriteDirector();
+            a.setDirector(director);
+            a.setUserPreferences(preferences);
+            preferences.getFavoriteDirectors().add(a);
+        }
+
         // Добавление новых фильмов
         for (String movie : dto.getFavoriteMovies()) {
             FavoriteMovie m = new FavoriteMovie();
@@ -67,6 +73,7 @@ public class PreferencesService {
                 dto.getFavoriteGenres(),
                 dto.getFavoriteActors(),
                 dto.getFavoriteMovies(),
+                dto.getFavoriteDirectors(),
                 dto.getMinRating()
         );
         System.out.println("ОТПРАВКА В КАФКУ");
