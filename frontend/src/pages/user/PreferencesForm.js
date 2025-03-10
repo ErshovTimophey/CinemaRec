@@ -42,11 +42,18 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
   const [totalDirectorPages, setTotalDirectorPages] = useState(1);
   const [currentMoviePage, setCurrentMoviePage] = useState(1);
   const [totalMoviePages, setTotalMoviePages] = useState(1);
+  // Храним всех режиссёров, актёров и фильмы
+  const [allActors, setAllActors] = useState([]);
+  const [allDirectors, setAllDirectors] = useState([]);
+  const [allMovies, setAllMovies] = useState([]);
 
   // Флаги для отображения результатов поиска
   const [showActorSearchResults, setShowActorSearchResults] = useState(false);
   const [showDirectorSearchResults, setShowDirectorSearchResults] = useState(false);
   const [showMovieSearchResults, setShowMovieSearchResults] = useState(false);
+
+  // Количество элементов на странице
+  const ITEMS_PER_PAGE = 20;
 
   useEffect(() => {
     if (!email) return;
@@ -56,21 +63,43 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
         setIsLoading(true);
         console.log("Fetching initial data for email:", email);
 
-        // Загружаем основную информацию
-        const [genresRes, actorsRes, directorsRes, moviesRes] = await Promise.all([
-          tmdbApi.get('/genre/movie/list'),
-          tmdbApi.get('/person/popular?page=1&person_type=actor'),
-          tmdbApi.get('/person/popular?page=1&person_type=director'),
-          tmdbApi.get('/movie/popular?page=1')
-        ]);
+        // Загружаем жанры
+        const genresRes = await tmdbApi.get('/genre/movie/list');
+
+        // Загружаем 10 страниц персон для режиссёров и актёров
+        let allFetchedActors = [];
+        let allFetchedDirectors = [];
+        const maxTmdbPages = 10;
+        for (let page = 1; page <= maxTmdbPages; page++) {
+          const personsRes = await tmdbApi.get(`/person/popular?page=${page}`);
+          const actors = personsRes.data.results.filter(person => person.known_for_department === 'Acting');
+          const directors = personsRes.data.results.filter(person => person.known_for_department === 'Directing');
+          allFetchedActors = [...allFetchedActors, ...actors];
+          allFetchedDirectors = [...allFetchedDirectors, ...directors];
+        }
+
+        // Загружаем 10 страниц фильмов
+        let allFetchedMovies = [];
+        for (let page = 1; page <= maxTmdbPages; page++) {
+          const moviesRes = await tmdbApi.get(`/movie/popular?page=${page}`);
+          allFetchedMovies = [...allFetchedMovies, ...moviesRes.data.results];
+        }
+
+        // Удаляем дубликаты по ID
+        allFetchedActors = Array.from(new Map(allFetchedActors.map(a => [a.id, a])).values());
+        allFetchedDirectors = Array.from(new Map(allFetchedDirectors.map(d => [d.id, d])).values());
+        allFetchedMovies = Array.from(new Map(allFetchedMovies.map(m => [m.id, m])).values());
 
         setGenres(genresRes.data.genres);
-        setActors(actorsRes.data.results);
-        setTotalActorPages(actorsRes.data.total_pages || 1);
-        setDirectors(directorsRes.data.results);
-        setTotalDirectorPages(directorsRes.data.total_pages || 1);
-        setMovies(moviesRes.data.results);
-        setTotalMoviePages(moviesRes.data.total_pages || 1);
+        setAllActors(allFetchedActors);
+        setActors(allFetchedActors.slice(0, ITEMS_PER_PAGE));
+        setTotalActorPages(Math.ceil(allFetchedActors.length / ITEMS_PER_PAGE));
+        setAllDirectors(allFetchedDirectors);
+        setDirectors(allFetchedDirectors.slice(0, ITEMS_PER_PAGE));
+        setTotalDirectorPages(Math.ceil(allFetchedDirectors.length / ITEMS_PER_PAGE));
+        setAllMovies(allFetchedMovies);
+        setMovies(allFetchedMovies.slice(0, ITEMS_PER_PAGE));
+        setTotalMoviePages(Math.ceil(allFetchedMovies.length / ITEMS_PER_PAGE));
 
         // Загружаем предпочтения пользователя
         try {
@@ -101,10 +130,10 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
             Promise.all(directorPromises)
           ]);
 
-          // Фильтруем null значения и удаляем дубликаты
+          // Фильтруем null значения, дубликаты и проверяем профессию
           setSelectedMovieObjects(movieResults.filter(m => m).filter((v, i, a) => a.findIndex(t => t.id === v.id) === i));
-          setSelectedActorObjects(actorResults.filter(a => a).filter((v, i, a) => a.findIndex(t => t.id === v.id) === i));
-          setSelectedDirectorObjects(directorResults.filter(d => d).filter((v, i, a) => a.findIndex(t => t.id === v.id) === i));
+          setSelectedActorObjects(actorResults.filter(a => a && a.known_for_department === 'Acting').filter((v, i, a) => a.findIndex(t => t.id === v.id) === i));
+          setSelectedDirectorObjects(directorResults.filter(d => d && d.known_for_department === 'Directing').filter((v, i, a) => a.findIndex(t => t.id === v.id) === i));
         } catch (prefError) {
           console.warn("No preferences found or failed to load preferences:", prefError);
           setSelectedGenres([]);
@@ -143,7 +172,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
     }
   };
 
-  // Поиск актеров
+  // Поиск актёров
   const handleActorSearch = async () => {
     if (!actorSearchQuery.trim()) {
       setShowActorSearchResults(false);
@@ -151,15 +180,15 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
     }
 
     try {
-      const response = await tmdbApi.get(`/search/person?query=${actorSearchQuery}&person_type=actor`);
-      setActorSearchResults(response.data.results);
+      const response = await tmdbApi.get(`/search/person?query=${actorSearchQuery}`);
+      setActorSearchResults(response.data.results.filter(person => person.known_for_department === 'Acting'));
       setShowActorSearchResults(true);
     } catch (error) {
       toast.error('Failed to search actors');
     }
   };
 
-  // Поиск режиссеров
+  // Поиск режиссёров
   const handleDirectorSearch = async () => {
     if (!directorSearchQuery.trim()) {
       setShowDirectorSearchResults(false);
@@ -167,44 +196,102 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
     }
 
     try {
-      const response = await tmdbApi.get(`/search/person?query=${directorSearchQuery}&person_type=director`);
-      setDirectorSearchResults(response.data.results);
+      const response = await tmdbApi.get(`/search/person?query=${directorSearchQuery}`);
+      setDirectorSearchResults(response.data.results.filter(person => person.known_for_department === 'Directing'));
       setShowDirectorSearchResults(true);
     } catch (error) {
       toast.error('Failed to search directors');
     }
   };
 
-  // Пагинация актеров
+  // Пагинация актёров
   const fetchActorPage = async (page) => {
     try {
-      const response = await tmdbApi.get(`/person/popular?page=${page}&person_type=actor`);
-      setActors(response.data.results);
+      const startIndex = (page - 1) * ITEMS_PER_PAGE;
+      const endIndex = startIndex + ITEMS_PER_PAGE;
+
+      // Если нужно больше актёров, запрашиваем дополнительные страницы
+      if (endIndex > allActors.length) {
+        const additionalPages = 10;
+        let newActors = [...allActors];
+        for (let i = 1; i <= additionalPages; i++) {
+          const nextPage = Math.ceil(allActors.length / 20) + i;
+          if (nextPage > 500) break;
+          const response = await tmdbApi.get(`/person/popular?page=${nextPage}`);
+          const filteredActors = response.data.results.filter(person => person.known_for_department === 'Acting');
+          newActors = [...newActors, ...filteredActors];
+        }
+        newActors = Array.from(new Map(newActors.map(a => [a.id, a])).values());
+        setAllActors(newActors);
+        setTotalActorPages(Math.ceil(newActors.length / ITEMS_PER_PAGE));
+      }
+
+      setActors(allActors.slice(startIndex, endIndex));
       setCurrentActorPage(page);
     } catch (error) {
       toast.error('Failed to load actors');
+      console.error(error);
     }
   };
 
-  // Пагинация режиссеров
+  // Пагинация режиссёров
   const fetchDirectorPage = async (page) => {
     try {
-      const response = await tmdbApi.get(`/person/popular?page=${page}&person_type=director`);
-      setDirectors(response.data.results);
+      const startIndex = (page - 1) * ITEMS_PER_PAGE;
+      const endIndex = startIndex + ITEMS_PER_PAGE;
+
+      // Если нужно больше режиссёров, запрашиваем дополнительные страницы
+      if (endIndex > allDirectors.length) {
+        const additionalPages = 10;
+        let newDirectors = [...allDirectors];
+        for (let i = 1; i <= additionalPages; i++) {
+          const nextPage = Math.ceil(allDirectors.length / 20) + i;
+          if (nextPage > 500) break;
+          const response = await tmdbApi.get(`/person/popular?page=${nextPage}`);
+          const filteredDirectors = response.data.results.filter(person => person.known_for_department === 'Directing');
+          newDirectors = [...newDirectors, ...filteredDirectors];
+        }
+        newDirectors = Array.from(new Map(newDirectors.map(d => [d.id, d])).values());
+        setAllDirectors(newDirectors);
+        setTotalDirectorPages(Math.ceil(newDirectors.length / ITEMS_PER_PAGE));
+      }
+
+      setDirectors(allDirectors.slice(startIndex, endIndex));
       setCurrentDirectorPage(page);
     } catch (error) {
       toast.error('Failed to load directors');
+      console.error(error);
     }
   };
 
   // Пагинация фильмов
   const fetchMoviePage = async (page) => {
     try {
-      const response = await tmdbApi.get(`/movie/popular?page=${page}`);
-      setMovies(response.data.results);
+      const startIndex = (page - 1) * ITEMS_PER_PAGE;
+      const endIndex = startIndex + ITEMS_PER_PAGE;
+
+      // Если нужно больше фильмов, запрашиваем дополнительные страницы
+      if (endIndex > allMovies.length) {
+        const additionalPages = 10;
+        let newMovies = [...allMovies];
+        for (let i = 1; i <= additionalPages; i++) {
+          const nextPage = Math.ceil(allMovies.length / 20) + i; // 20 фильмов на страницу TMDB
+          if (nextPage > 500) break; // Ограничение TMDB
+          const response = await tmdbApi.get(`/movie/popular?page=${nextPage}`);
+          newMovies = [...newMovies, ...response.data.results];
+        }
+        // Удаляем дубликаты
+        newMovies = Array.from(new Map(newMovies.map(m => [m.id, m])).values());
+        setAllMovies(newMovies);
+        setTotalMoviePages(Math.ceil(newMovies.length / ITEMS_PER_PAGE));
+      }
+
+      // Обновляем отображаемые фильмы
+      setMovies(allMovies.slice(startIndex, endIndex));
       setCurrentMoviePage(page);
     } catch (error) {
       toast.error('Failed to load movies');
+      console.error(error);
     }
   };
 
@@ -262,7 +349,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
 
   const handleSavePreferences = async () => {
     try {
-
       const preferences = {
         favoriteGenres: selectedGenres,
         favoriteActors: selectedActors,
@@ -493,7 +579,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
         </div>
       )}
 
-      {activeTab === 'directors' && (
+      {activeTab == 'directors' && (
         <div className="mb-6">
           <label className="block text-lg mb-2 flex items-center">
             <FaUserTie className="mr-2" /> Favorite Directors (Select up to 5)
