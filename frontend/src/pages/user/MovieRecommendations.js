@@ -73,7 +73,7 @@ const MovieRecommendations = ({ email }) => {
       toast.error('Failed to update');
     }
   };
-    // НЕ ДОБАВЛЕН ЭНДПОИНТ!!!
+
   const handleRefreshRecommendations = async () => {
     try {
       await axios.post(

@@ -1,5 +1,7 @@
 package com.example.userservice.controller;
 
+import com.example.dto.PreferencesEvent;
+import com.example.userservice.dto.GetPreferencesDTO;
 import com.example.userservice.dto.RecommendationDto;
 import com.example.userservice.model.User;
 import com.example.userservice.service.UserService;
@@ -27,5 +29,11 @@ public class UserController {
     public ResponseEntity<List<RecommendationDto>> getRecommendations(@PathVariable String email) {
         System.out.println(email + " ЮЗЕР АЙДИ");
         return ResponseEntity.ok(userService.getUserRecommendations(email));
+    }
+
+    @PostMapping("/{email}/refresh-recommendations")
+    public ResponseEntity<Void> refreshRecommendations(@PathVariable String email) {
+        userService.refreshRecommendations(email);
+        return ResponseEntity.ok().build();
     }
 }

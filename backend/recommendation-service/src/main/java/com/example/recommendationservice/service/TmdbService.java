@@ -32,7 +32,6 @@ public class TmdbService {
 
     public TmdbService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
-
         headers = new HttpHeaders();
         headers.set("accept", "application/json");
         headers.set("Authorization", "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyZDQ2MmI5MTYxZGM3NDIwMzI0NWVjMDcyOWRmZjM4NyIsIm5iZiI6MTc0NzA2MzAxOC41MzUsInN1YiI6IjY4MjIxMGVhMzJmNzNlMTJlNDczOTNjNyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Xx1dOcNyzFsIMIB3h3hD006NVEoZMFXsF6d7GVlUsTA");
@@ -45,28 +44,39 @@ public class TmdbService {
                                               Double minRating) {
         try {
             Set<TmdbMovie> recommendations = new HashSet<>();
+            Random random = new Random();
 
-            // Рекомендации по похожим фильмам
+            // Рекомендации по похожим фильмам (2 страницы)
             for (String movieId : favoriteMovies) {
-                recommendations.addAll(getSimilarMovies(movieId));
+                recommendations.addAll(getSimilarMovies(movieId, 2));
             }
 
-            // Рекомендации по актерам
+            // Рекомендации по актерам (2 страницы)
             for (String actorId : favoriteActors) {
                 recommendations.addAll(getMoviesByPerson(actorId, "cast"));
             }
 
-            // Рекомендации по режиссерам
+            // Рекомендации по режиссерам (2 страницы)
             for (String directorId : favoriteDirectors) {
                 recommendations.addAll(getMoviesByPerson(directorId, "crew"));
             }
 
-            // Рекомендации по жанрам
-            recommendations.addAll(discoverMovies(favoriteGenres, minRating));
+            // Рекомендации по жанрам с случайной сортировкой (2 страницы)
+            String[] sortOptions = {"popularity.desc", "vote_average.desc", "release_date.desc"};
+            String sortBy = sortOptions[random.nextInt(sortOptions.length)];
+            recommendations.addAll(discoverMovies(favoriteGenres, minRating, sortBy, 2));
 
-            return recommendations.stream()
-                    .filter(movie -> movie.getVoteAverage() >= minRating)
-                    .sorted(Comparator.comparing(TmdbMovie::getVoteAverage).reversed())
+            // Фильтруем и случайно выбираем 20 фильмов
+            List<TmdbMovie> filteredMovies = new ArrayList<>( // Преобразуем в изменяемый список
+                    recommendations.stream()
+                            .filter(movie -> movie.getVoteAverage() >= minRating)
+                            .sorted(Comparator.comparing(TmdbMovie::getVoteAverage).reversed())
+                            .toList()
+            );
+
+            // Случайный выбор 20 фильмов (или меньше, если фильмов недостаточно)
+            Collections.shuffle(filteredMovies, random);
+            return filteredMovies.stream()
                     .limit(20)
                     .toList();
 
@@ -76,13 +86,17 @@ public class TmdbService {
         }
     }
 
-    private List<TmdbMovie> getSimilarMovies(String movieId) {
-        String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
-                .path("/movie/{movieId}/similar")
-                .buildAndExpand(movieId)
-                .toUriString();
-
-        return fetchMovies(url);
+    private List<TmdbMovie> getSimilarMovies(String movieId, int pages) {
+        List<TmdbMovie> movies = new ArrayList<>();
+        for (int page = 1; page <= pages; page++) {
+            String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
+                    .path("/movie/{movieId}/similar")
+                    .queryParam("page", page)
+                    .buildAndExpand(movieId)
+                    .toUriString();
+            movies.addAll(fetchMovies(url));
+        }
+        return movies;
     }
 
     private List<TmdbMovie> getMoviesByPerson(String personId, String creditType) {
@@ -92,11 +106,7 @@ public class TmdbService {
                 .toUriString();
 
         ResponseEntity<Map> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                new HttpEntity<>(headers),
-                Map.class
-        );
+                url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
 
         if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
             List<Map<String, Object>> credits = (List<Map<String, Object>>) response.getBody().get(creditType);
@@ -107,27 +117,27 @@ public class TmdbService {
         return Collections.emptyList();
     }
 
-    private List<TmdbMovie> discoverMovies(List<String> genres, Double minRating) {
+    private List<TmdbMovie> discoverMovies(List<String> genres, Double minRating, String sortBy, int pages) {
+        List<TmdbMovie> movies = new ArrayList<>();
         String genreQuery = String.join(",", genres.stream().map(String::valueOf).toList());
 
-        String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
-                .path("/discover/movie")
-                .queryParam("with_genres", genreQuery)
-                .queryParam("vote_average.gte", minRating)
-                .queryParam("sort_by", "vote_average.desc")
-                .build()
-                .toUriString();
-
-        return fetchMovies(url);
+        for (int page = 1; page <= pages; page++) {
+            String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
+                    .path("/discover/movie")
+                    .queryParam("with_genres", genreQuery)
+                    .queryParam("vote_average.gte", minRating)
+                    .queryParam("sort_by", sortBy)
+                    .queryParam("page", page)
+                    .build()
+                    .toUriString();
+            movies.addAll(fetchMovies(url));
+        }
+        return movies;
     }
 
     private List<TmdbMovie> fetchMovies(String url) {
         ResponseEntity<Map> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                new HttpEntity<>(headers),
-                Map.class
-        );
+                url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
 
         if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
             List<Map<String, Object>> results = (List<Map<String, Object>>) response.getBody().get("results");
@@ -147,38 +157,26 @@ public class TmdbService {
         movie.setPosterPath((String) movieMap.get("poster_path"));
         movie.setVoteAverage(
                 movieMap.get("vote_average") instanceof Number ?
-                        ((Number) movieMap.get("vote_average")).doubleValue() :
-                        0.0
-        );
+                        ((Number) movieMap.get("vote_average")).doubleValue() : 0.0);
         if (movieMap.get("genre_ids") instanceof List<?>) {
             List<Integer> ids = (List<Integer>) movieMap.get("genre_ids");
             movie.setGenreIds(ids);
-
             List<String> names = ids.stream()
                     .map(genreMap::get)
                     .filter(Objects::nonNull)
                     .toList();
-
             movie.setGenreNames(names);
         }
-
         return movie;
     }
 
     void loadGenresIfNeeded() {
         if (!genreMap.isEmpty()) return;
-
         String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
                 .path("/genre/movie/list")
                 .toUriString();
-
         ResponseEntity<Map> response = restTemplate.exchange(
-                url,
-                HttpMethod.GET,
-                new HttpEntity<>(headers),
-                Map.class
-        );
-
+                url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
         if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
             List<Map<String, Object>> genres = (List<Map<String, Object>>) response.getBody().get("genres");
             for (Map<String, Object> genre : genres) {
