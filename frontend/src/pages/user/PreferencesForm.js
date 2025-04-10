@@ -12,7 +12,7 @@ const tmdbApi = axios.create({
   }
 });
 
-const PreferencesForm = ({ email, onPreferencesUpdated }) => {
+const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) => {
   // Состояния
   const [genres, setGenres] = useState([]);
   const [actors, setActors] = useState([]);
@@ -42,7 +42,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
   const [totalDirectorPages, setTotalDirectorPages] = useState(1);
   const [currentMoviePage, setCurrentMoviePage] = useState(1);
   const [totalMoviePages, setTotalMoviePages] = useState(1);
-  // Храним всех режиссёров, актёров и фильмы
   const [allActors, setAllActors] = useState([]);
   const [allDirectors, setAllDirectors] = useState([]);
   const [allMovies, setAllMovies] = useState([]);
@@ -63,12 +62,11 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
         setIsLoading(true);
         console.log("Fetching initial data for email:", email);
 
-        // Загружаем жанры
         const genresRes = await tmdbApi.get('/genre/movie/list');
 
-        // Загружаем 10 страниц персон для режиссёров и актёров
         let allFetchedActors = [];
         let allFetchedDirectors = [];
+        let allFetchedMovies = [];
         const maxTmdbPages = 10;
         for (let page = 1; page <= maxTmdbPages; page++) {
           const personsRes = await tmdbApi.get(`/person/popular?page=${page}`);
@@ -77,15 +75,11 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
           allFetchedActors = [...allFetchedActors, ...actors];
           allFetchedDirectors = [...allFetchedDirectors, ...directors];
         }
-
-        // Загружаем 10 страниц фильмов
-        let allFetchedMovies = [];
         for (let page = 1; page <= maxTmdbPages; page++) {
           const moviesRes = await tmdbApi.get(`/movie/popular?page=${page}`);
           allFetchedMovies = [...allFetchedMovies, ...moviesRes.data.results];
         }
 
-        // Удаляем дубликаты по ID
         allFetchedActors = Array.from(new Map(allFetchedActors.map(a => [a.id, a])).values());
         allFetchedDirectors = Array.from(new Map(allFetchedDirectors.map(d => [d.id, d])).values());
         allFetchedMovies = Array.from(new Map(allFetchedMovies.map(m => [m.id, m])).values());
@@ -101,7 +95,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
         setMovies(allFetchedMovies.slice(0, ITEMS_PER_PAGE));
         setTotalMoviePages(Math.ceil(allFetchedMovies.length / ITEMS_PER_PAGE));
 
-        // Загружаем предпочтения пользователя
         try {
           const preferencesRes = await axios.get(`http://localhost:8082/users/${email}/preferences`);
           const prefs = preferencesRes.data;
@@ -113,16 +106,12 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
           setSelectedMovies(prefs.favoriteMovies?.map(id => Number(id)) || []);
           setMinRating(prefs.minRating || 7);
 
-          // Загружаем полные данные для выбранных элементов
           const moviePromises = prefs.favoriteMovies?.map(id =>
-            tmdbApi.get(`/movie/${id}`).then(res => res.data).catch(() => null)
-          ) || [];
+            tmdbApi.get(`/movie/${id}`).then(res => res.data).catch(() => null)) || [];
           const actorPromises = prefs.favoriteActors?.map(id =>
-            tmdbApi.get(`/person/${id}`).then(res => res.data).catch(() => null)
-          ) || [];
+            tmdbApi.get(`/person/${id}`).then(res => res.data).catch(() => null)) || [];
           const directorPromises = prefs.favoriteDirectors?.map(id =>
-            tmdbApi.get(`/person/${id}`).then(res => res.data).catch(() => null)
-          ) || [];
+            tmdbApi.get(`/person/${id}`).then(res => res.data).catch(() => null)) || [];
 
           const [movieResults, actorResults, directorResults] = await Promise.all([
             Promise.all(moviePromises),
@@ -130,7 +119,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
             Promise.all(directorPromises)
           ]);
 
-          // Фильтруем null значения, дубликаты и проверяем профессию
           setSelectedMovieObjects(movieResults.filter(m => m).filter((v, i, a) => a.findIndex(t => t.id === v.id) === i));
           setSelectedActorObjects(actorResults.filter(a => a && a.known_for_department === 'Acting').filter((v, i, a) => a.findIndex(t => t.id === v.id) === i));
           setSelectedDirectorObjects(directorResults.filter(d => d && d.known_for_department === 'Directing').filter((v, i, a) => a.findIndex(t => t.id === v.id) === i));
@@ -162,7 +150,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
       setShowMovieSearchResults(false);
       return;
     }
-
     try {
       const response = await tmdbApi.get(`/search/movie?query=${movieSearchQuery}`);
       setMovieSearchResults(response.data.results);
@@ -178,7 +165,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
       setShowActorSearchResults(false);
       return;
     }
-
     try {
       const response = await tmdbApi.get(`/search/person?query=${actorSearchQuery}`);
       setActorSearchResults(response.data.results.filter(person => person.known_for_department === 'Acting'));
@@ -194,7 +180,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
       setShowDirectorSearchResults(false);
       return;
     }
-
     try {
       const response = await tmdbApi.get(`/search/person?query=${directorSearchQuery}`);
       setDirectorSearchResults(response.data.results.filter(person => person.known_for_department === 'Directing'));
@@ -209,10 +194,8 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
     try {
       const startIndex = (page - 1) * ITEMS_PER_PAGE;
       const endIndex = startIndex + ITEMS_PER_PAGE;
-
-      // Если нужно больше актёров, запрашиваем дополнительные страницы
       if (endIndex > allActors.length) {
-        const additionalPages = 10;
+        const additionalPages = 5;
         let newActors = [...allActors];
         for (let i = 1; i <= additionalPages; i++) {
           const nextPage = Math.ceil(allActors.length / 20) + i;
@@ -225,7 +208,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
         setAllActors(newActors);
         setTotalActorPages(Math.ceil(newActors.length / ITEMS_PER_PAGE));
       }
-
       setActors(allActors.slice(startIndex, endIndex));
       setCurrentActorPage(page);
     } catch (error) {
@@ -239,10 +221,8 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
     try {
       const startIndex = (page - 1) * ITEMS_PER_PAGE;
       const endIndex = startIndex + ITEMS_PER_PAGE;
-
-      // Если нужно больше режиссёров, запрашиваем дополнительные страницы
       if (endIndex > allDirectors.length) {
-        const additionalPages = 10;
+        const additionalPages = 5;
         let newDirectors = [...allDirectors];
         for (let i = 1; i <= additionalPages; i++) {
           const nextPage = Math.ceil(allDirectors.length / 20) + i;
@@ -255,7 +235,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
         setAllDirectors(newDirectors);
         setTotalDirectorPages(Math.ceil(newDirectors.length / ITEMS_PER_PAGE));
       }
-
       setDirectors(allDirectors.slice(startIndex, endIndex));
       setCurrentDirectorPage(page);
     } catch (error) {
@@ -269,24 +248,19 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
     try {
       const startIndex = (page - 1) * ITEMS_PER_PAGE;
       const endIndex = startIndex + ITEMS_PER_PAGE;
-
-      // Если нужно больше фильмов, запрашиваем дополнительные страницы
       if (endIndex > allMovies.length) {
-        const additionalPages = 10;
+        const additionalPages = 5;
         let newMovies = [...allMovies];
         for (let i = 1; i <= additionalPages; i++) {
-          const nextPage = Math.ceil(allMovies.length / 20) + i; // 20 фильмов на страницу TMDB
-          if (nextPage > 500) break; // Ограничение TMDB
+          const nextPage = Math.ceil(allMovies.length / 20) + i;
+          if (nextPage > 500) break;
           const response = await tmdbApi.get(`/movie/popular?page=${nextPage}`);
           newMovies = [...newMovies, ...response.data.results];
         }
-        // Удаляем дубликаты
         newMovies = Array.from(new Map(newMovies.map(m => [m.id, m])).values());
         setAllMovies(newMovies);
         setTotalMoviePages(Math.ceil(newMovies.length / ITEMS_PER_PAGE));
       }
-
-      // Обновляем отображаемые фильмы
       setMovies(allMovies.slice(startIndex, endIndex));
       setCurrentMoviePage(page);
     } catch (error) {
@@ -298,15 +272,12 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
   // Обработчики изменений
   const handleGenreChange = (genreId, isChecked) => {
     setSelectedGenres(prev =>
-      isChecked ? [...prev, genreId] : prev.filter(id => id !== genreId)
-    );
+      isChecked ? [...prev, genreId] : prev.filter(id => id !== genreId));
   };
 
   const handleActorChange = (actorId, isChecked) => {
     setSelectedActors(prev =>
-      isChecked ? [...prev, actorId] : prev.filter(id => id !== actorId)
-    );
-
+      isChecked ? [...prev, actorId] : prev.filter(id => id !== actorId));
     if (isChecked) {
       const actor = [...actorSearchResults, ...actors].find(a => a.id === actorId);
       if (actor && !selectedActorObjects.find(a => a.id === actorId)) {
@@ -319,9 +290,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
 
   const handleDirectorChange = (directorId, isChecked) => {
     setSelectedDirectors(prev =>
-      isChecked ? [...prev, directorId] : prev.filter(id => id !== directorId)
-    );
-
+      isChecked ? [...prev, directorId] : prev.filter(id => id !== directorId));
     if (isChecked) {
       const director = [...directorSearchResults, ...directors].find(d => d.id === directorId);
       if (director && !selectedDirectorObjects.find(d => d.id === directorId)) {
@@ -334,9 +303,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
 
   const handleMovieChange = (movieId, isChecked) => {
     setSelectedMovies(prev =>
-      isChecked ? [...prev, movieId] : prev.filter(id => id !== movieId)
-    );
-
+      isChecked ? [...prev, movieId] : prev.filter(id => id !== movieId));
     if (isChecked) {
       const movie = [...movieSearchResults, ...movies].find(m => m.id === movieId);
       if (movie && !selectedMovieObjects.find(m => m.id === movieId)) {
@@ -356,20 +323,20 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
         favoriteMovies: selectedMovies,
         minRating: minRating
       };
-
       console.log("Saving preferences:", preferences);
-
       const response = await axios.put(
         `http://localhost:8082/users/${email}/preferences`,
         preferences
       );
-
       console.log("Save preferences response:", response.data);
       toast.success('Preferences updated successfully!');
       if (onPreferencesUpdated) {
         console.log("Triggering onPreferencesUpdated callback");
         await onPreferencesUpdated();
       }
+      // Обновляем рекомендации после сохранения предпочтений
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Задержка 1 сек
+      await fetchRecommendations();
     } catch (error) {
       console.error('Error saving preferences:', error);
       toast.error('Failed to update preferences');
@@ -466,7 +433,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
           <label className="block text-lg mb-2 flex items-center">
             <FaUser className="mr-2" /> Favorite Actors (Select up to 5)
           </label>
-
           <div className="flex mb-4">
             <input
               type="text"
@@ -493,7 +459,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
               </button>
             )}
           </div>
-
           {!showActorSearchResults && (
             <div className="flex justify-between items-center mb-4">
               <button
@@ -515,7 +480,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
               </button>
             </div>
           )}
-
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {displayedActors.map(actor => (
               <label
@@ -545,7 +509,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
               </label>
             ))}
           </div>
-
           {selectedActorObjects.length > 0 && (
             <div className="mt-6">
               <h3 className="text-md font-semibold mb-2">Selected Actors</h3>
@@ -579,12 +542,11 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
         </div>
       )}
 
-      {activeTab == 'directors' && (
+      {activeTab === 'directors' && (
         <div className="mb-6">
           <label className="block text-lg mb-2 flex items-center">
             <FaUserTie className="mr-2" /> Favorite Directors (Select up to 5)
           </label>
-
           <div className="flex mb-4">
             <input
               type="text"
@@ -611,7 +573,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
               </button>
             )}
           </div>
-
           {!showDirectorSearchResults && (
             <div className="flex justify-between items-center mb-4">
               <button
@@ -633,7 +594,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
               </button>
             </div>
           )}
-
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {displayedDirectors.map(director => (
               <label
@@ -663,7 +623,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
               </label>
             ))}
           </div>
-
           {selectedDirectorObjects.length > 0 && (
             <div className="mt-6">
               <h3 className="text-md font-semibold mb-2">Selected Directors</h3>
@@ -702,7 +661,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
           <label className="block text-lg mb-2 flex items-center">
             <FaFilm className="mr-2" /> Favorite Movies (Select at least 3)
           </label>
-
           <div className="flex mb-4">
             <input
               type="text"
@@ -729,7 +687,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
               </button>
             )}
           </div>
-
           {!showMovieSearchResults && (
             <div className="flex justify-between items-center mb-4">
               <button
@@ -751,7 +708,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
               </button>
             </div>
           )}
-
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {displayedMovies.map(movie => (
               <label
@@ -781,7 +737,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
               </label>
             ))}
           </div>
-
           {selectedMovieObjects.length > 0 && (
             <div className="mt-6">
               <h3 className="text-md font-semibold mb-2">Selected Movies</h3>
@@ -851,7 +806,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated }) => {
         >
           Next
         </button>
-
         <button
           onClick={handleSavePreferences}
           disabled={
