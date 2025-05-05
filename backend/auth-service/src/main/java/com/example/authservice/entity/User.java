@@ -3,9 +3,9 @@ package com.example.authservice.entity;
 import jakarta.persistence.*;
 import lombok.Data;
 
-@Data
 @Entity
 @Table(name = "users")
+@Data
 public class User {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -18,5 +18,10 @@ public class User {
     private String password;
 
     @Column(nullable = false)
-    private String role; // "USER" or "ADMIN"
+    @Enumerated(EnumType.STRING)
+    private UserRole role = UserRole.USER;
+
+    @Enumerated(EnumType.STRING)
+    private OAuth2Provider provider;
 }
+

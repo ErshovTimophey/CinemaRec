@@ -1,0 +1,48 @@
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+
+const OAuth2RedirectPage = () => {
+    const navigate = useNavigate();
+
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        const email = urlParams.get('email');
+        const role = "USER";
+
+        if (token && email && role) {
+            localStorage.setItem('token', token);
+            localStorage.setItem('userEmail', email);
+            localStorage.setItem('userRole', role);
+
+            toast.success(`Welcome, ${email}!`, {
+                position: "top-right",
+                autoClose: 3000,
+            });
+
+            if (role === 'ADMIN') {
+                navigate('/admin/dashboard');
+            } else {
+                navigate('/user/dashboard');
+            }
+        } else {
+            toast.error('OAuth2 login failed', {
+                position: "top-right",
+                autoClose: 3000,
+            });
+            navigate('/login');
+        }
+    }, [navigate]);
+
+    return (
+        <div className="flex items-center justify-center min-h-screen bg-gray-100">
+            <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500 mx-auto"></div>
+                <p className="mt-4 text-gray-700">Processing OAuth2 login...</p>
+            </div>
+        </div>
+    );
+};
+
+export default OAuth2RedirectPage;

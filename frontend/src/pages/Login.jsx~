@@ -96,7 +96,7 @@ const Login = () => {
 
         } catch (error) {
             console.error('Google login error:', error);
-            toast.error('Google login failed. Please try again.' + error.message, {
+            toast.error('Google login failed. Please try again.', {
                 position: "top-right",
                 autoClose: 3000,
             });
