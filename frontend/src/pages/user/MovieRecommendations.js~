@@ -48,7 +48,7 @@ const MovieRecommendations = ({ email }) => {
       setDetailsError(null);
       console.debug(`Fetching details for movieId: ${movieId}`); // Отладка
       const response = await axios.get(
-        `http://localhost:8083/api/recommendations/${email}/movies/${movieId}`
+        `http://localhost:8082/users/${email}/movies/${movieId}`
       );
       console.debug('Movie details response:', response.data); // Отладка
       if (!response.data || Object.keys(response.data).length === 0) {

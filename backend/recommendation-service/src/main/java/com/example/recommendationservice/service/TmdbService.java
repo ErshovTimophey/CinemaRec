@@ -1,6 +1,7 @@
 package com.example.recommendationservice.service;
 
 import com.example.recommendationservice.dto.TmdbMovie;
+import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -275,8 +276,8 @@ public class TmdbService {
                 }
             }
 
-            // Награды (TMDB не предоставляет данные о наградах, используем заглушку)
-            details.setAwards("Information about awards is not available via TMDB API.");
+           /* // Награды (TMDB не предоставляет данные о наградах, используем заглушку)
+            details.setAwards("Information about awards is not available via TMDB API.");*/
 
             return details;
 
@@ -305,45 +306,15 @@ public class TmdbService {
         return posterPath != null ? imageBaseUrl + posterPath : null;
     }
 
+    @Data
     public static class RecommendationsByCategory {
         private List<TmdbMovie> actorRecommendations = new ArrayList<>();
         private List<TmdbMovie> genreRecommendations = new ArrayList<>();
         private List<TmdbMovie> directorRecommendations = new ArrayList<>();
         private List<TmdbMovie> movieRecommendations = new ArrayList<>();
-
-        public List<TmdbMovie> getActorRecommendations() {
-            return actorRecommendations;
-        }
-
-        public void setActorRecommendations(List<TmdbMovie> actorRecommendations) {
-            this.actorRecommendations = actorRecommendations;
-        }
-
-        public List<TmdbMovie> getGenreRecommendations() {
-            return genreRecommendations;
-        }
-
-        public void setGenreRecommendations(List<TmdbMovie> genreRecommendations) {
-            this.genreRecommendations = genreRecommendations;
-        }
-
-        public List<TmdbMovie> getDirectorRecommendations() {
-            return directorRecommendations;
-        }
-
-        public void setDirectorRecommendations(List<TmdbMovie> directorRecommendations) {
-            this.directorRecommendations = directorRecommendations;
-        }
-
-        public List<TmdbMovie> getMovieRecommendations() {
-            return movieRecommendations;
-        }
-
-        public void setMovieRecommendations(List<TmdbMovie> movieRecommendations) {
-            this.movieRecommendations = movieRecommendations;
-        }
     }
 
+    @Data
     public static class MovieDetails {
         private Integer id;
         private String title;
@@ -355,95 +326,6 @@ public class TmdbService {
         private List<String> genres = new ArrayList<>();
         private List<String> actors = new ArrayList<>();
         private List<String> directors = new ArrayList<>();
-        private String awards;
-
-        // Геттеры и сеттеры
-        public Integer getId() {
-            return id;
-        }
-
-        public void setId(Integer id) {
-            this.id = id;
-        }
-
-        public String getTitle() {
-            return title;
-        }
-
-        public void setTitle(String title) {
-            this.title = title;
-        }
-
-        public String getOverview() {
-            return overview;
-        }
-
-        public void setOverview(String overview) {
-            this.overview = overview;
-        }
-
-        public String getPosterPath() {
-            return posterPath;
-        }
-
-        public void setPosterPath(String posterPath) {
-            this.posterPath = posterPath;
-        }
-
-        public Double getVoteAverage() {
-            return voteAverage;
-        }
-
-        public void setVoteAverage(Double voteAverage) {
-            this.voteAverage = voteAverage;
-        }
-
-        public String getReleaseDate() {
-            return releaseDate;
-        }
-
-        public void setReleaseDate(String releaseDate) {
-            this.releaseDate = releaseDate;
-        }
-
-        public Integer getRuntime() {
-            return runtime;
-        }
-
-        public void setRuntime(Integer runtime) {
-            this.runtime = runtime;
-        }
-
-        public List<String> getGenres() {
-            return genres;
-        }
-
-        public void setGenres(List<String> genres) {
-            this.genres = genres;
-        }
-
-        public List<String> getActors() {
-            return actors;
-        }
-
-        public void setActors(List<String> actors) {
-            this.actors = actors;
-        }
-
-        public List<String> getDirectors() {
-            return directors;
-        }
-
-        public void setDirectors(List<String> directors) {
-            this.directors = directors;
-        }
-
-        public String getAwards() {
-            return awards;
-        }
-
-        public void setAwards(String awards) {
-            this.awards = awards;
-        }
+        /*private String awards;*/
     }
 }
