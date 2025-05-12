@@ -1,4 +1,3 @@
-// MovieRecommendations.js
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { FaStar, FaHeart, FaEye, FaEdit, FaRedo } from 'react-icons/fa';
@@ -11,6 +10,9 @@ const MovieRecommendations = ({ email }) => {
   const [loading, setLoading] = useState(true);
   const [showPreferences, setShowPreferences] = useState(false);
   const [hasPreferences, setHasPreferences] = useState(false);
+  const [selectedMovie, setSelectedMovie] = useState(null);
+  const [movieDetails, setMovieDetails] = useState(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
 
   const fetchRecommendations = async () => {
     try {
@@ -39,6 +41,21 @@ const MovieRecommendations = ({ email }) => {
     }
   };
 
+  const fetchMovieDetails = async (movieId) => {
+    try {
+      setDetailsLoading(true);
+      const response = await axios.get(
+        `http://localhost:8082/users/${email}/movies/${movieId}`
+      );
+      setMovieDetails(response.data);
+      setDetailsLoading(false);
+    } catch (error) {
+      console.error('Error fetching movie details:', error);
+      toast.error('Failed to load movie details');
+      setDetailsLoading(false);
+    }
+  };
+
   useEffect(() => {
     if (!email) return;
 
@@ -52,19 +69,20 @@ const MovieRecommendations = ({ email }) => {
     }
   }, [showPreferences]);
 
-
-
-  //ТАКОГО ЭНДПОИНТА НЕТ
+  useEffect(() => {
+    if (selectedMovie) {
+      fetchMovieDetails(selectedMovie.movieId);
+    }
+  }, [selectedMovie]);
 
   const handleMarkAsWatched = async (movieId) => {
     try {
       await axios.post(
-        `http://localhost:8082/users/${email}/watched-movies`,
-        { movieId }
+        `http://localhost:8082/users/${email}/recommendations/${movieId}/watched`
       );
       setRecommendations(prev =>
         prev.map(movie =>
-          movie.id === movieId ? { ...movie, watched: true } : movie
+          movie.movieId === movieId ? { ...movie, watched: true } : movie
         )
       );
       toast.success('Marked as watched!');
@@ -79,6 +97,7 @@ const MovieRecommendations = ({ email }) => {
       await axios.post(
         `http://localhost:8082/users/${email}/refresh-recommendations`
       );
+      await new Promise(resolve => setTimeout(resolve, 2000)); // Задержка для Kafka
       await fetchRecommendations();
       toast.success('Recommendations refreshed!');
     } catch (error) {
@@ -110,43 +129,6 @@ const MovieRecommendations = ({ email }) => {
     );
   }
 
-
-//  if (!hasPreferences) {
-//    return (
-//      <motion.div
-//        initial={{ opacity: 0, y: 20 }}
-//        animate={{ opacity: 1, y: 0 }}
-//        className="p-4"
-//      >
-//        <div className="bg-white p-6 rounded-lg shadow-lg text-center">
-//          <h2 className="text-2xl font-bold mb-4">Welcome to CinemaRec!</h2>
-//          <p className="text-lg mb-6">
-//            To get personalized movie recommendations, please set your preferences first.
-//          </p>
-//          <button
-//            onClick={() => setShowPreferences(true)}
-//            className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-//          >
-//            Set Preferences
-//          </button>
-//        </div>
-//
-//        {showPreferences && (
-//          <div className="mt-6">
-//            <PreferencesForm
-//              email={email}
-//              onPreferencesUpdated={async () => {
-//                  setShowPreferences(false);
-//                  await fetchRecommendations();
-//                  setHasPreferences(true);
-//              }}
-//            />
-//          </div>
-//        )}
-//      </motion.div>
-//    );
-//  }
-
   if (loading) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -154,6 +136,14 @@ const MovieRecommendations = ({ email }) => {
       </div>
     );
   }
+
+  // Группировка рекомендаций по категориям
+  const groupedRecommendations = {
+    actors: recommendations.filter(rec => rec.category === 'actors'),
+    genres: recommendations.filter(rec => rec.category === 'genres'),
+    directors: recommendations.filter(rec => rec.category === 'directors'),
+    movies: recommendations.filter(rec => rec.category === 'movies'),
+  };
 
   return (
     <div className="p-4">
@@ -186,14 +176,74 @@ const MovieRecommendations = ({ email }) => {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {recommendations.map(movie => (
-            <MovieCard
-              key={movie.id}
-              movie={movie}
-              onMarkAsWatched={handleMarkAsWatched}
-            />
-          ))}
+        <div className="space-y-12">
+          {/* Рекомендации по актерам */}
+          {groupedRecommendations.actors.length > 0 && (
+            <div>
+              <h3 className="text-xl font-semibold mb-4">Based on Your Favorite Actors</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {groupedRecommendations.actors.map(movie => (
+                  <MovieCard
+                    key={movie.movieId}
+                    movie={movie}
+                    onMarkAsWatched={handleMarkAsWatched}
+                    onClick={() => setSelectedMovie(movie)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Рекомендации по жанрам */}
+          {groupedRecommendations.genres.length > 0 && (
+            <div>
+              <h3 className="text-xl font-semibold mb-4">Based on Your Favorite Genres</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {groupedRecommendations.genres.map(movie => (
+                  <MovieCard
+                    key={movie.movieId}
+                    movie={movie}
+                    onMarkAsWatched={handleMarkAsWatched}
+                    onClick={() => setSelectedMovie(movie)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Рекомендации по режиссерам */}
+          {groupedRecommendations.directors.length > 0 && (
+            <div>
+              <h3 className="text-xl font-semibold mb-4">Based on Your Favorite Directors</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {groupedRecommendations.directors.map(movie => (
+                  <MovieCard
+                    key={movie.movieId}
+                    movie={movie}
+                    onMarkAsWatched={handleMarkAsWatched}
+                    onClick={() => setSelectedMovie(movie)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Рекомендации по фильмам */}
+          {groupedRecommendations.movies.length > 0 && (
+            <div>
+              <h3 className="text-xl font-semibold mb-4">Based on Your Favorite Movies</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                {groupedRecommendations.movies.map(movie => (
+                  <MovieCard
+                    key={movie.movieId}
+                    movie={movie}
+                    onMarkAsWatched={handleMarkAsWatched}
+                    onClick={() => setSelectedMovie(movie)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -207,27 +257,26 @@ const MovieRecommendations = ({ email }) => {
             <PreferencesForm
               email={email}
               onPreferencesUpdated={async () => {
-                  setShowPreferences(false);
-                  setHasPreferences(true);
-                  const maxAttempts = 5;
-                   const delayMs = 1000;
-                    setLoading(true);
-                    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-                      await new Promise(resolve => setTimeout(resolve, delayMs));
-                      const response = await axios.get(
-                        `http://localhost:8082/users/${email}/recommendations`
-                      );
-                      if (response.data && response.data.length > 0) {
-                        setLoading(false);
-                        setRecommendations(response.data);
-                        return;
-                      }
-                    }
-
-                    // Последняя попытка если ничего не вернулось
-                    await fetchRecommendations();
+                setShowPreferences(false);
+                setHasPreferences(true);
+                const maxAttempts = 5;
+                const delayMs = 1000;
+                setLoading(true);
+                for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                  await new Promise(resolve => setTimeout(resolve, delayMs));
+                  const response = await axios.get(
+                    `http://localhost:8082/users/${email}/recommendations`
+                  );
+                  if (response.data && response.data.length > 0) {
+                    setRecommendations(response.data);
                     setLoading(false);
+                    return;
+                  }
+                }
+                await fetchRecommendations();
+                setLoading(false);
               }}
+              fetchRecommendations={fetchRecommendations}
             />
             <button
               onClick={() => setShowPreferences(false)}
@@ -238,23 +287,103 @@ const MovieRecommendations = ({ email }) => {
           </motion.div>
         </div>
       )}
+
+      {selectedMovie && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+          >
+            {detailsLoading ? (
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+              </div>
+            ) : movieDetails ? (
+              <div>
+                <div className="flex flex-col sm:flex-row gap-6">
+                  <img
+                    src={
+                      movieDetails.posterPath
+                        ? `https://image.tmdb.org/t/p/w500${movieDetails.posterPath}`
+                        : 'https://via.placeholder.com/300x450?text=No+Image'
+                    }
+                    alt={movieDetails.title}
+                    className="w-full sm:w-1/3 h-auto rounded-lg object-cover"
+                  />
+                  <div className="flex-1">
+                    <h2 className="text-2xl font-bold mb-2">{movieDetails.title}</h2>
+                    <p className="text-gray-600 mb-2">
+                      <span className="font-semibold">Release Date:</span>{' '}
+                      {movieDetails.releaseDate || 'N/A'}
+                    </p>
+                    <p className="text-gray-600 mb-2">
+                      <span className="font-semibold">Runtime:</span>{' '}
+                      {movieDetails.runtime ? `${movieDetails.runtime} minutes` : 'N/A'}
+                    </p>
+                    <p className="text-gray-600 mb-2">
+                      <span className="font-semibold">Rating:</span>{' '}
+                      {movieDetails.voteAverage?.toFixed(1) || 'N/A'} / 10
+                    </p>
+                    <p className="text-gray-600 mb-2">
+                      <span className="font-semibold">Genres:</span>{' '}
+                      {movieDetails.genres?.length > 0 ? movieDetails.genres.join(', ') : 'N/A'}
+                    </p>
+                    <p className="text-gray-600 mb-2">
+                      <span className="font-semibold">Actors:</span>{' '}
+                      {movieDetails.actors?.length > 0 ? movieDetails.actors.join(', ') : 'N/A'}
+                    </p>
+                    <p className="text-gray-600 mb-2">
+                      <span className="font-semibold">Directors:</span>{' '}
+                      {movieDetails.directors?.length > 0 ? movieDetails.directors.join(', ') : 'N/A'}
+                    </p>
+                    <p className="text-gray-600 mb-2">
+                      <span className="font-semibold">Awards:</span>{' '}
+                      {movieDetails.awards || 'N/A'}
+                    </p>
+                    <p className="text-gray-700 mb-4">
+                      <span className="font-semibold">Overview:</span>{' '}
+                      {movieDetails.overview || 'No description available'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end mt-4">
+                  <button
+                    onClick={() => {
+                      setSelectedMovie(null);
+                      setMovieDetails(null);
+                    }}
+                    className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-center text-gray-600">Failed to load movie details.</p>
+            )}
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };
 
-const MovieCard = ({ movie, onMarkAsWatched }) => {
+const MovieCard = ({ movie, onMarkAsWatched, onClick }) => {
   return (
     <motion.div
       whileHover={{ scale: 1.03 }}
-      className="bg-white rounded-lg overflow-hidden shadow-lg"
+      className="bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer"
+      onClick={onClick}
     >
       <img
         src={
           movie.posterUrl
-            ? `https://image.tmdb.org/t/p/w500${movie.posterUrl}`
+            ? movie.posterUrl
             : 'https://via.placeholder.com/500x750?text=No+Image'
         }
-        alt={movie.title}
+        alt={movie.movieTitle}
         className="w-full h-96 object-cover"
       />
       <div className="p-4">
@@ -273,7 +402,10 @@ const MovieCard = ({ movie, onMarkAsWatched }) => {
         </p>
         <div className="flex space-x-2">
           <button
-            onClick={() => onMarkAsWatched(movie.id)}
+            onClick={(e) => {
+              e.stopPropagation(); // Предотвращаем открытие модального окна при клике
+              onMarkAsWatched(movie.movieId);
+            }}
             className={`flex items-center px-3 py-1 rounded ${
               movie.watched
                 ? 'bg-green-100 text-green-800'
@@ -283,12 +415,14 @@ const MovieCard = ({ movie, onMarkAsWatched }) => {
             <FaEye className="mr-1" />
             {movie.watched ? 'Watched' : 'Mark as watched'}
           </button>
-          <button className="flex items-center px-3 py-1 rounded bg-red-100 text-red-800 hover:bg-red-200">
+          <button
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center px-3 py-1 rounded bg-red-100 text-red-800 hover:bg-red-200"
+          >
             <FaHeart className="mr-1" />
             Like
           </button>
         </div>
-        <pre className="text-xs text-gray-400">{JSON.stringify(movie, null, 2)}</pre>
       </div>
     </motion.div>
   );

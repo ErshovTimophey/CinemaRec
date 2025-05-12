@@ -23,7 +23,9 @@ public class Recommendation {
     private Double rating;
     @Column(columnDefinition = "TEXT")
     private String overview;
-    
+    @Column(columnDefinition = "TEXT")
+    private String genres;
+
     @Column(name = "recommended_at")
     private LocalDateTime recommendedAt;
 

@@ -16,6 +16,7 @@ public class RecommendationDto {
     private String overview;
     private String genres;
     private LocalDateTime recommendedAt;
+    private String category;
 
     private boolean watched;
 

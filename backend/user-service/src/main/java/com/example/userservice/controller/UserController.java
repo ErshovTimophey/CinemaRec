@@ -36,4 +36,12 @@ public class UserController {
         userService.refreshRecommendations(email);
         return ResponseEntity.ok().build();
     }
+
+    /*@PostMapping("/recommendations/{movieId}/watched")
+    public ResponseEntity<Void> markMovieAsWatched(@PathVariable String email, @PathVariable Integer movieId) {
+        recommendationService.markMovieAsWatched(email, movieId);
+        return ResponseEntity.ok().build();
+    }*/
+
+
 }

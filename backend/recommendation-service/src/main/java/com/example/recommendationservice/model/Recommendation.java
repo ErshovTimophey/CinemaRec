@@ -31,6 +31,9 @@ public class Recommendation {
 
     private boolean watched;
 
+    @Column(nullable = false)
+    private String category;
+
     @PrePersist
     protected void onCreate() {
         recommendedAt = LocalDateTime.now();

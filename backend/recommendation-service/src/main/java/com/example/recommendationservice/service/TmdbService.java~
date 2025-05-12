@@ -32,9 +32,8 @@ public class TmdbService {
     private final Map<Integer, String> genreMap = new HashMap<>();
 
     // Минимальные пороги для фильтрации
-    private static final int MIN_VOTE_COUNT = 100;
-    private static final double MIN_POPULARITY = 10.0;
-    private static final String EXCLUDE_COUNTRY = "IN"; // Исключаем Индию
+    private static final int MIN_VOTE_COUNT = 100; // Минимум 100 голосов
+    private static final double MIN_POPULARITY = 10.0; // Минимум 10.0 популярности
 
     public TmdbService(RestTemplate restTemplate) {
         this.restTemplate = restTemplate;
@@ -52,32 +51,32 @@ public class TmdbService {
             Random random = new Random();
             RecommendationsByCategory result = new RecommendationsByCategory();
 
-            // Рекомендации по похожим фильмам (5 страниц)
+            // Рекомендации по похожим фильмам
             List<TmdbMovie> movieRecommendations = new ArrayList<>();
             for (String movieId : favoriteMovies) {
-                movieRecommendations.addAll(getSimilarMovies(movieId, 5));
+                movieRecommendations.addAll(getSimilarMovies(movieId, 2));
             }
-            result.setMovieRecommendations(filterAndLimit(movieRecommendations, minRating, random, 20));
+            result.setMovieRecommendations(filterAndLimit(movieRecommendations, minRating, random, 5));
 
-            // Рекомендации по актерам (5 страниц)
+            // Рекомендации по актерам
             List<TmdbMovie> actorRecommendations = new ArrayList<>();
             for (String actorId : favoriteActors) {
                 actorRecommendations.addAll(getMoviesByPerson(actorId, "cast"));
             }
-            result.setActorRecommendations(filterAndLimit(actorRecommendations, minRating, random, 20));
+            result.setActorRecommendations(filterAndLimit(actorRecommendations, minRating, random, 5));
 
-            // Рекомендации по режиссерам (5 страниц)
+            // Рекомендации по режиссерам
             List<TmdbMovie> directorRecommendations = new ArrayList<>();
             for (String directorId : favoriteDirectors) {
                 directorRecommendations.addAll(getMoviesByPerson(directorId, "crew"));
             }
-            result.setDirectorRecommendations(filterAndLimit(directorRecommendations, minRating, random, 20));
+            result.setDirectorRecommendations(filterAndLimit(directorRecommendations, minRating, random, 5));
 
-            // Рекомендации по жанрам (5 страниц)
+            // Рекомендации по жанрам с случайной сортировкой
             String[] sortOptions = {"popularity.desc", "vote_average.desc", "release_date.desc"};
             String sortBy = sortOptions[random.nextInt(sortOptions.length)];
-            List<TmdbMovie> genreRecommendations = discoverMovies(favoriteGenres, minRating, sortBy, 5);
-            result.setGenreRecommendations(filterAndLimit(genreRecommendations, minRating, random, 20));
+            List<TmdbMovie> genreRecommendations = discoverMovies(favoriteGenres, minRating, sortBy, 2);
+            result.setGenreRecommendations(filterAndLimit(genreRecommendations, minRating, random, 5));
 
             return result;
 
@@ -93,14 +92,13 @@ public class TmdbService {
                         .filter(movie -> movie.getVoteAverage() >= minRating)
                         .filter(movie -> movie.getVoteCount() != null && movie.getVoteCount() >= MIN_VOTE_COUNT)
                         .filter(movie -> movie.getPopularity() != null && movie.getPopularity() >= MIN_POPULARITY)
-                        .filter(movie -> movie.getProductionCountries() != null && !movie.getProductionCountries().contains(EXCLUDE_COUNTRY))
                         .sorted(Comparator.comparing(TmdbMovie::getVoteAverage).reversed())
                         .toList()
         );
 
         if (filteredMovies.isEmpty()) {
-            log.warn("No movies found after filtering with minRating={}, minVoteCount={}, minPopularity={}, excludeCountry={}",
-                    minRating, MIN_VOTE_COUNT, MIN_POPULARITY, EXCLUDE_COUNTRY);
+            log.warn("No movies found after filtering with minRating={}, minVoteCount={}, minPopularity={}",
+                    minRating, MIN_VOTE_COUNT, MIN_POPULARITY);
             return Collections.emptyList();
         }
 
@@ -117,7 +115,6 @@ public class TmdbService {
                     .path("/movie/{movieId}/similar")
                     .queryParam("page", page)
                     .queryParam("vote_count.gte", MIN_VOTE_COUNT)
-                    .queryParam("without_countries", EXCLUDE_COUNTRY)
                     .buildAndExpand(movieId)
                     .toUriString();
             movies.addAll(fetchMovies(url));
@@ -139,7 +136,6 @@ public class TmdbService {
             List<Map<String, Object>> credits = (List<Map<String, Object>>) response.getBody().get(creditType);
             return credits.stream()
                     .map(this::mapToTmdbMovie)
-                    .filter(movie -> movie.getProductionCountries() != null && !movie.getProductionCountries().contains(EXCLUDE_COUNTRY))
                     .toList();
         }
         return Collections.emptyList();
@@ -156,7 +152,6 @@ public class TmdbService {
                     .queryParam("vote_average.gte", minRating)
                     .queryParam("vote_count.gte", MIN_VOTE_COUNT)
                     .queryParam("popularity.gte", MIN_POPULARITY)
-                    .queryParam("without_countries", EXCLUDE_COUNTRY)
                     .queryParam("sort_by", sortBy)
                     .queryParam("page", page)
                     .build()
@@ -204,86 +199,7 @@ public class TmdbService {
                     .toList();
             movie.setGenreNames(names);
         }
-        if (movieMap.get("production_countries") instanceof List<?>) {
-            List<Map<String, Object>> countries = (List<Map<String, Object>>) movieMap.get("production_countries");
-            List<String> countryCodes = countries.stream()
-                    .map(country -> (String) country.get("iso_3166_1"))
-                    .filter(Objects::nonNull)
-                    .toList();
-            movie.setProductionCountries(countryCodes);
-        }
         return movie;
-    }
-
-    public MovieDetails getMovieDetails(Integer movieId) {
-        try {
-            // Получение основной информации о фильме
-            String movieUrl = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
-                    .path("/movie/{movieId}")
-                    .buildAndExpand(movieId)
-                    .toUriString();
-            ResponseEntity<Map> movieResponse = restTemplate.exchange(
-                    movieUrl, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
-
-            // Получение актёров и режиссёров
-            String creditsUrl = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
-                    .path("/movie/{movieId}/credits")
-                    .buildAndExpand(movieId)
-                    .toUriString();
-            ResponseEntity<Map> creditsResponse = restTemplate.exchange(
-                    creditsUrl, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
-
-            MovieDetails details = new MovieDetails();
-
-            if (movieResponse.getStatusCode() == HttpStatus.OK && movieResponse.getBody() != null) {
-                Map<String, Object> movieData = movieResponse.getBody();
-                details.setId((Integer) movieData.get("id"));
-                details.setTitle((String) movieData.get("title"));
-                details.setOverview((String) movieData.get("overview"));
-                details.setPosterPath((String) movieData.get("poster_path"));
-                details.setVoteAverage(
-                        movieData.get("vote_average") instanceof Number ?
-                                ((Number) movieData.get("vote_average")).doubleValue() : 0.0);
-                details.setReleaseDate((String) movieData.get("release_date"));
-                details.setRuntime(
-                        movieData.get("runtime") instanceof Number ?
-                                ((Number) movieData.get("runtime")).intValue() : 0);
-                if (movieData.get("genres") instanceof List<?>) {
-                    List<Map<String, Object>> genres = (List<Map<String, Object>>) movieData.get("genres");
-                    details.setGenres(genres.stream()
-                            .map(genre -> (String) genre.get("name"))
-                            .filter(Objects::nonNull)
-                            .collect(Collectors.toList()));
-                }
-            }
-
-            if (creditsResponse.getStatusCode() == HttpStatus.OK && creditsResponse.getBody() != null) {
-                Map<String, Object> creditsData = creditsResponse.getBody();
-                if (creditsData.get("cast") instanceof List<?>) {
-                    List<Map<String, Object>> cast = (List<Map<String, Object>>) creditsData.get("cast");
-                    details.setActors(cast.stream()
-                            .map(actor -> (String) actor.get("name"))
-                            .limit(5) // Ограничим до 5 актёров
-                            .collect(Collectors.toList()));
-                }
-                if (creditsData.get("crew") instanceof List<?>) {
-                    List<Map<String, Object>> crew = (List<Map<String, Object>>) creditsData.get("crew");
-                    details.setDirectors(crew.stream()
-                            .filter(member -> "Director".equals(member.get("job")))
-                            .map(member -> (String) member.get("name"))
-                            .collect(Collectors.toList()));
-                }
-            }
-
-            // Награды (TMDB не предоставляет данные о наградах, используем заглушку)
-            details.setAwards("Information about awards is not available via TMDB API.");
-
-            return details;
-
-        } catch (Exception e) {
-            log.error("Error fetching movie details for movieId={}", movieId, e);
-            return new MovieDetails();
-        }
     }
 
     void loadGenresIfNeeded() {
@@ -305,6 +221,7 @@ public class TmdbService {
         return posterPath != null ? imageBaseUrl + posterPath : null;
     }
 
+    // Внутренний класс для структурированных рекомендаций
     public static class RecommendationsByCategory {
         private List<TmdbMovie> actorRecommendations = new ArrayList<>();
         private List<TmdbMovie> genreRecommendations = new ArrayList<>();
@@ -341,109 +258,6 @@ public class TmdbService {
 
         public void setMovieRecommendations(List<TmdbMovie> movieRecommendations) {
             this.movieRecommendations = movieRecommendations;
-        }
-    }
-
-    public static class MovieDetails {
-        private Integer id;
-        private String title;
-        private String overview;
-        private String posterPath;
-        private Double voteAverage;
-        private String releaseDate;
-        private Integer runtime;
-        private List<String> genres = new ArrayList<>();
-        private List<String> actors = new ArrayList<>();
-        private List<String> directors = new ArrayList<>();
-        private String awards;
-
-        // Геттеры и сеттеры
-        public Integer getId() {
-            return id;
-        }
-
-        public void setId(Integer id) {
-            this.id = id;
-        }
-
-        public String getTitle() {
-            return title;
-        }
-
-        public void setTitle(String title) {
-            this.title = title;
-        }
-
-        public String getOverview() {
-            return overview;
-        }
-
-        public void setOverview(String overview) {
-            this.overview = overview;
-        }
-
-        public String getPosterPath() {
-            return posterPath;
-        }
-
-        public void setPosterPath(String posterPath) {
-            this.posterPath = posterPath;
-        }
-
-        public Double getVoteAverage() {
-            return voteAverage;
-        }
-
-        public void setVoteAverage(Double voteAverage) {
-            this.voteAverage = voteAverage;
-        }
-
-        public String getReleaseDate() {
-            return releaseDate;
-        }
-
-        public void setReleaseDate(String releaseDate) {
-            this.releaseDate = releaseDate;
-        }
-
-        public Integer getRuntime() {
-            return runtime;
-        }
-
-        public void setRuntime(Integer runtime) {
-            this.runtime = runtime;
-        }
-
-        public List<String> getGenres() {
-            return genres;
-        }
-
-        public void setGenres(List<String> genres) {
-            this.genres = genres;
-        }
-
-        public List<String> getActors() {
-            return actors;
-        }
-
-        public void setActors(List<String> actors) {
-            this.actors = actors;
-        }
-
-        public List<String> getDirectors() {
-            return directors;
-        }
-
-        public void setDirectors(List<String> directors) {
-            this.directors = directors;
-        }
-
-        public String getAwards() {
-            return awards;
-        }
-
-        public void setAwards(String awards) {
-            this.awards = awards;
         }
     }
 }
