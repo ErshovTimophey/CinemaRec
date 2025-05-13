@@ -363,10 +363,6 @@ const MovieRecommendations = ({ email }) => {
                       <span className="font-semibold">Directors:</span>{' '}
                       {movieDetails.directors?.length > 0 ? movieDetails.directors.join(', ') : 'N/A'}
                     </p>
-                    <p className="text-gray-600 mb-2">
-                      <span className="font-semibold">Awards:</span>{' '}
-                      {movieDetails.awards || 'N/A'}
-                    </p>
                     <p className="text-gray-700 mb-4">
                       <span className="font-semibold">Overview:</span>{' '}
                       {movieDetails.overview || 'No description available'}

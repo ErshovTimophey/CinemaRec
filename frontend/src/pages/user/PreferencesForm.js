@@ -4,6 +4,7 @@ import { toast } from 'react-toastify';
 import { FaSave, FaFilm, FaUser, FaStar, FaSearch, FaChevronLeft, FaChevronRight, FaTimes, FaUserTie } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 
+// TMDB API client
 const tmdbApi = axios.create({
   baseURL: 'https://api.themoviedb.org/3',
   headers: {
@@ -12,8 +13,59 @@ const tmdbApi = axios.create({
   }
 });
 
+// Reusable MovieCard component for consistent poster rendering
+const MovieCard = ({ movie, isSelected, onChange, onRemove, isSelectable }) => {
+  const posterUrl = movie.poster_path
+    ? `https://image.tmdb.org/t/p/w200${movie.poster_path}`
+    : 'https://via.placeholder.com/150x225?text=No+Poster';
+  const checkboxId = `movie-checkbox-${movie.id}`; // Unique ID for checkbox
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.2 }}
+      className={`relative flex flex-col items-center p-3 bg-white border rounded-lg shadow-md hover:shadow-lg hover:scale-105 transition-transform duration-200 ${
+        isSelected ? 'border-purple-500 bg-purple-50' : 'border-gray-200'
+      } ${isSelectable ? 'cursor-pointer' : ''}`}
+      title={movie.title} // Tooltip for full title
+    >
+      {onRemove && (
+        <button
+          onClick={() => onRemove(movie.id)}
+          className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 focus:outline-none z-10"
+          aria-label={`Remove ${movie.title}`}
+        >
+          <FaTimes size={12} />
+        </button>
+      )}
+      <label htmlFor={isSelectable ? checkboxId : undefined} className="flex flex-col items-center w-full">
+        <div className="w-[150px] aspect-[2/3] mb-2">
+          <img
+            src={posterUrl}
+            alt={movie.title}
+            className="w-full h-full object-contain rounded-md"
+          />
+        </div>
+        <span className="text-sm font-medium text-gray-800 text-center line-clamp-2">
+          {movie.title}
+        </span>
+        {isSelectable && (
+          <input
+            id={checkboxId}
+            type="checkbox"
+            checked={isSelected}
+            onChange={(e) => onChange(movie.id, e.target.checked)}
+            className="mt-2 rounded text-purple-600 focus:ring-purple-500"
+          />
+        )}
+      </label>
+    </motion.div>
+  );
+};
+
 const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) => {
-  // Состояния
+  // States
   const [genres, setGenres] = useState([]);
   const [actors, setActors] = useState([]);
   const [directors, setDirectors] = useState([]);
@@ -35,7 +87,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
   const [selectedActorObjects, setSelectedActorObjects] = useState([]);
   const [selectedDirectorObjects, setSelectedDirectorObjects] = useState([]);
 
-  // Пагинация
+  // Pagination
   const [currentActorPage, setCurrentActorPage] = useState(1);
   const [totalActorPages, setTotalActorPages] = useState(1);
   const [currentDirectorPage, setCurrentDirectorPage] = useState(1);
@@ -46,12 +98,12 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
   const [allDirectors, setAllDirectors] = useState([]);
   const [allMovies, setAllMovies] = useState([]);
 
-  // Флаги для отображения результатов поиска
+  // Search result visibility flags
   const [showActorSearchResults, setShowActorSearchResults] = useState(false);
   const [showDirectorSearchResults, setShowDirectorSearchResults] = useState(false);
   const [showMovieSearchResults, setShowMovieSearchResults] = useState(false);
 
-  // Количество элементов на странице
+  // Items per page
   const ITEMS_PER_PAGE = 20;
 
   useEffect(() => {
@@ -144,7 +196,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
     fetchInitialData();
   }, [email]);
 
-  // Поиск фильмов
+  // Movie search
   const handleMovieSearch = async () => {
     if (!movieSearchQuery.trim()) {
       setShowMovieSearchResults(false);
@@ -159,7 +211,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
     }
   };
 
-  // Поиск актёров
+  // Actor search
   const handleActorSearch = async () => {
     if (!actorSearchQuery.trim()) {
       setShowActorSearchResults(false);
@@ -174,7 +226,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
     }
   };
 
-  // Поиск режиссёров
+  // Director search
   const handleDirectorSearch = async () => {
     if (!directorSearchQuery.trim()) {
       setShowDirectorSearchResults(false);
@@ -189,7 +241,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
     }
   };
 
-  // Пагинация актёров
+  // Actor pagination
   const fetchActorPage = async (page) => {
     try {
       const startIndex = (page - 1) * ITEMS_PER_PAGE;
@@ -216,7 +268,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
     }
   };
 
-  // Пагинация режиссёров
+  // Director pagination
   const fetchDirectorPage = async (page) => {
     try {
       const startIndex = (page - 1) * ITEMS_PER_PAGE;
@@ -243,7 +295,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
     }
   };
 
-  // Пагинация фильмов
+  // Movie pagination
   const fetchMoviePage = async (page) => {
     try {
       const startIndex = (page - 1) * ITEMS_PER_PAGE;
@@ -269,7 +321,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
     }
   };
 
-  // Обработчики изменений
+  // Handlers
   const handleGenreChange = (genreId, isChecked) => {
     setSelectedGenres(prev =>
       isChecked ? [...prev, genreId] : prev.filter(id => id !== genreId));
@@ -334,8 +386,8 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
         console.log("Triggering onPreferencesUpdated callback");
         await onPreferencesUpdated();
       }
-      // Обновляем рекомендации после сохранения предпочтений
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Задержка 1 сек
+      // Fetch recommendations after saving preferences
+      await new Promise(resolve => setTimeout(resolve, 1000)); // 1-second delay
       await fetchRecommendations();
     } catch (error) {
       console.error('Error saving preferences:', error);
@@ -359,7 +411,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="bg-white p-6 rounded-lg shadow-lg"
+      className="bg-white p-6 rounded-lg shadow-lg max-w-7xl mx-auto"
     >
       <h2 className="text-2xl font-bold mb-6 flex items-center">
         <FaFilm className="mr-2" /> Your Preferences
@@ -369,31 +421,31 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
         <div className="flex border-b">
           <button
             onClick={() => setActiveTab('genres')}
-            className={`px-4 py-2 ${activeTab === 'genres' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-600'}`}
+            className={`px-4 py-2 font-medium ${activeTab === 'genres' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-600 hover:text-purple-600'}`}
           >
             Genres
           </button>
           <button
             onClick={() => setActiveTab('actors')}
-            className={`px-4 py-2 ${activeTab === 'actors' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-600'}`}
+            className={`px-4 py-2 font-medium ${activeTab === 'actors' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-600 hover:text-purple-600'}`}
           >
             Actors
           </button>
           <button
             onClick={() => setActiveTab('directors')}
-            className={`px-4 py-2 ${activeTab === 'directors' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-600'}`}
+            className={`px-4 py-2 font-medium ${activeTab === 'directors' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-600 hover:text-purple-600'}`}
           >
             Directors
           </button>
           <button
             onClick={() => setActiveTab('movies')}
-            className={`px-4 py-2 ${activeTab === 'movies' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-600'}`}
+            className={`px-4 py-2 font-medium ${activeTab === 'movies' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-600 hover:text-purple-600'}`}
           >
             Movies
           </button>
           <button
             onClick={() => setActiveTab('rating')}
-            className={`px-4 py-2 ${activeTab === 'rating' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-600'}`}
+            className={`px-4 py-2 font-medium ${activeTab === 'rating' ? 'border-b-2 border-purple-500 text-purple-600' : 'text-gray-600 hover:text-purple-600'}`}
           >
             Rating
           </button>
@@ -402,26 +454,26 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
 
       {activeTab === 'genres' && (
         <div className="mb-6">
-          <label className="block text-lg mb-2 flex items-center">
+          <label className="block text-lg font-semibold mb-2 flex items-center">
             <FaFilm className="mr-2" /> Favorite Genres (Select at least 3)
           </label>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             {genres.map(genre => (
               <label
                 key={genre.id}
-                className={`flex items-center space-x-2 p-2 border rounded transition ${
+                className={`flex items-center space-x-2 p-3 border rounded-lg transition-all duration-200 ${
                   selectedGenres.includes(genre.id)
-                    ? 'bg-purple-100 border-purple-500'
-                    : 'hover:bg-purple-50'
+                    ? 'bg-purple-100 border-purple-500 shadow-sm'
+                    : 'hover:bg-purple-50 hover:shadow-sm'
                 }`}
               >
                 <input
                   type="checkbox"
                   checked={selectedGenres.includes(genre.id)}
                   onChange={(e) => handleGenreChange(genre.id, e.target.checked)}
-                  className="rounded text-purple-600 focus:ring-purple-500"
+                  className="rounded text-purple-600 h-5 w-5 focus:ring-purple-500"
                 />
-                <span>{genre.name}</span>
+                <span className="text-sm font-medium">{genre.name}</span>
               </label>
             ))}
           </div>
@@ -430,20 +482,20 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
 
       {activeTab === 'actors' && (
         <div className="mb-6">
-          <label className="block text-lg mb-2 flex items-center">
+          <label className="block text-lg font-semibold mb-2 flex items-center">
             <FaUser className="mr-2" /> Favorite Actors (Select up to 5)
           </label>
-          <div className="flex mb-4">
+          <div className="flex flex-col sm:flex-row gap-2 mb-4">
             <input
               type="text"
               value={actorSearchQuery}
               onChange={(e) => setActorSearchQuery(e.target.value)}
               placeholder="Search for actors..."
-              className="flex-1 p-2 border rounded-l-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="flex-1 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
             <button
               onClick={handleActorSearch}
-              className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-r-lg hover:bg-purple-700 transition"
+              className="flex items-center px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
             >
               <FaSearch className="mr-2" /> Search
             </button>
@@ -453,7 +505,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
                   setShowActorSearchResults(false);
                   setActorSearchQuery('');
                 }}
-                className="flex items-center px-4 py-2 ml-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition"
+                className="flex items-center px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
               >
                 <FaTimes className="mr-2" /> Back to Popular
               </button>
@@ -464,37 +516,37 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
               <button
                 onClick={() => fetchActorPage(currentActorPage - 1)}
                 disabled={currentActorPage <= 1}
-                className="flex items-center px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
+                className="flex items-center px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition"
               >
                 <FaChevronLeft className="mr-1" /> Previous
               </button>
-              <span className="text-gray-600">
+              <span className="text-gray-600 font-medium">
                 Page {currentActorPage} of {totalActorPages}
               </span>
               <button
                 onClick={() => fetchActorPage(currentActorPage + 1)}
                 disabled={currentActorPage >= totalActorPages}
-                className="flex items-center px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
+                className="flex items-center px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition"
               >
                 Next <FaChevronRight className="ml-1" />
               </button>
             </div>
           )}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {displayedActors.map(actor => (
               <label
                 key={actor.id}
-                className={`flex flex-col items-center p-2 border rounded transition ${
+                className={`flex flex-col items-center p-3 border rounded-lg transition-all duration-200 ${
                   selectedActors.includes(actor.id)
-                    ? 'bg-purple-100 border-purple-500'
-                    : 'hover:bg-purple-50'
+                    ? 'bg-purple-100 border-purple-500 shadow-sm'
+                    : 'hover:bg-purple-50 hover:shadow-sm'
                 }`}
               >
                 <img
                   src={
                     actor.profile_path
                       ? `https://image.tmdb.org/t/p/w200${actor.profile_path}`
-                      : 'https://via.placeholder.com/200x300?text=No+Image'
+                      : 'https://via.placeholder.com/150x150?text=No+Image'
                   }
                   alt={actor.name}
                   className="w-24 h-24 rounded-full object-cover mb-2"
@@ -503,37 +555,38 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
                   type="checkbox"
                   checked={selectedActors.includes(actor.id)}
                   onChange={(e) => handleActorChange(actor.id, e.target.checked)}
-                  className="rounded text-purple-600 focus:ring-purple-500"
+                  className="rounded text-purple-600 h-5 w-5 focus:ring-purple-500"
                 />
-                <span className="text-center">{actor.name}</span>
+                <span className="text-sm font-medium text-center line-clamp-2">{actor.name}</span>
               </label>
             ))}
           </div>
           {selectedActorObjects.length > 0 && (
             <div className="mt-6">
-              <h3 className="text-md font-semibold mb-2">Selected Actors</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <h3 className="text-lg font-semibold mb-3">Selected Actors</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {selectedActorObjects.map(actor => (
-                  <div key={actor.id} className="relative flex flex-col items-center p-2 border rounded">
+                  <div key={actor.id} className="relative flex flex-col items-center p-3 border rounded-lg shadow-md">
                     <button
                       onClick={() => {
                         setSelectedActors(prev => prev.filter(id => id !== actor.id));
                         setSelectedActorObjects(prev => prev.filter(a => a.id !== actor.id));
                       }}
-                      className="absolute top-1 right-1 text-gray-600 hover:text-red-600 focus:outline-none"
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 focus:outline-none"
                       aria-label={`Remove ${actor.name}`}
-                      style={{ background: 'rgba(255,255,255,0.8)', borderRadius: '50%', width: 24, height: 24, display: 'flex', justifyContent: 'center', alignItems: 'center' }}
                     >
-                      ✕
+                      <FaTimes size={12} />
                     </button>
                     <img
-                      src={actor.profile_path
-                        ? `https://image.tmdb.org/t/p/w200${actor.profile_path}`
-                        : 'https://via.placeholder.com/200x300?text=No+Image'}
+                      src={
+                        actor.profile_path
+                          ? `https://image.tmdb.org/t/p/w200${actor.profile_path}`
+                          : 'https://via.placeholder.com/150x150?text=No+Image'
+                      }
                       alt={actor.name}
                       className="w-24 h-24 rounded-full object-cover mb-2"
                     />
-                    <span className="text-center text-sm">{actor.name}</span>
+                    <span className="text-sm font-medium text-center line-clamp-2">{actor.name}</span>
                   </div>
                 ))}
               </div>
@@ -544,20 +597,20 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
 
       {activeTab === 'directors' && (
         <div className="mb-6">
-          <label className="block text-lg mb-2 flex items-center">
+          <label className="block text-lg font-semibold mb-2 flex items-center">
             <FaUserTie className="mr-2" /> Favorite Directors (Select up to 5)
           </label>
-          <div className="flex mb-4">
+          <div className="flex flex-col sm:flex-row gap-2 mb-4">
             <input
               type="text"
               value={directorSearchQuery}
               onChange={(e) => setDirectorSearchQuery(e.target.value)}
               placeholder="Search for directors..."
-              className="flex-1 p-2 border rounded-l-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="flex-1 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
             <button
               onClick={handleDirectorSearch}
-              className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-r-lg hover:bg-purple-700 transition"
+              className="flex items-center px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
             >
               <FaSearch className="mr-2" /> Search
             </button>
@@ -567,7 +620,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
                   setShowDirectorSearchResults(false);
                   setDirectorSearchQuery('');
                 }}
-                className="flex items-center px-4 py-2 ml-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition"
+                className="flex items-center px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
               >
                 <FaTimes className="mr-2" /> Back to Popular
               </button>
@@ -578,37 +631,37 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
               <button
                 onClick={() => fetchDirectorPage(currentDirectorPage - 1)}
                 disabled={currentDirectorPage <= 1}
-                className="flex items-center px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
+                className="flex items-center px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition"
               >
                 <FaChevronLeft className="mr-1" /> Previous
               </button>
-              <span className="text-gray-600">
+              <span className="text-gray-600 font-medium">
                 Page {currentDirectorPage} of {totalDirectorPages}
               </span>
               <button
                 onClick={() => fetchDirectorPage(currentDirectorPage + 1)}
                 disabled={currentDirectorPage >= totalDirectorPages}
-                className="flex items-center px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
+                className="flex items-center px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition"
               >
                 Next <FaChevronRight className="ml-1" />
               </button>
             </div>
           )}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {displayedDirectors.map(director => (
               <label
                 key={director.id}
-                className={`flex flex-col items-center p-2 border rounded transition ${
+                className={`flex flex-col items-center p-3 border rounded-lg transition-all duration-200 ${
                   selectedDirectors.includes(director.id)
-                    ? 'bg-purple-100 border-purple-500'
-                    : 'hover:bg-purple-50'
+                    ? 'bg-purple-100 border-purple-500 shadow-sm'
+                    : 'hover:bg-purple-50 hover:shadow-sm'
                 }`}
               >
                 <img
                   src={
                     director.profile_path
                       ? `https://image.tmdb.org/t/p/w200${director.profile_path}`
-                      : 'https://via.placeholder.com/200x300?text=No+Image'
+                      : 'https://via.placeholder.com/150x150?text=No+Image'
                   }
                   alt={director.name}
                   className="w-24 h-24 rounded-full object-cover mb-2"
@@ -617,37 +670,38 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
                   type="checkbox"
                   checked={selectedDirectors.includes(director.id)}
                   onChange={(e) => handleDirectorChange(director.id, e.target.checked)}
-                  className="rounded text-purple-600 focus:ring-purple-500"
+                  className="rounded text-purple-600 h-5 w-5 focus:ring-purple-500"
                 />
-                <span className="text-center">{director.name}</span>
+                <span className="text-sm font-medium text-center line-clamp-2">{director.name}</span>
               </label>
             ))}
           </div>
           {selectedDirectorObjects.length > 0 && (
             <div className="mt-6">
-              <h3 className="text-md font-semibold mb-2">Selected Directors</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <h3 className="text-lg font-semibold mb-3">Selected Directors</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {selectedDirectorObjects.map(director => (
-                  <div key={director.id} className="relative flex flex-col items-center p-2 border rounded">
+                  <div key={director.id} className="relative flex flex-col items-center p-3 border rounded-lg shadow-md">
                     <button
                       onClick={() => {
                         setSelectedDirectors(prev => prev.filter(id => id !== director.id));
                         setSelectedDirectorObjects(prev => prev.filter(d => d.id !== director.id));
                       }}
-                      className="absolute top-1 right-1 text-gray-600 hover:text-red-600 focus:outline-none"
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-600 focus:outline-none"
                       aria-label={`Remove ${director.name}`}
-                      style={{ background: 'rgba(255,255,255,0.8)', borderRadius: '50%', width: 24, height: 24, display: 'flex', justifyContent: 'center', alignItems: 'center' }}
                     >
-                      ✕
+                      <FaTimes size={12} />
                     </button>
                     <img
-                      src={director.profile_path
-                        ? `https://image.tmdb.org/t/p/w200${director.profile_path}`
-                        : 'https://via.placeholder.com/200x300?text=No+Image'}
+                      src={
+                        director.profile_path
+                          ? `https://image.tmdb.org/t/p/w200${director.profile_path}`
+                          : 'https://via.placeholder.com/150x150?text=No+Image'
+                      }
                       alt={director.name}
                       className="w-24 h-24 rounded-full object-cover mb-2"
                     />
-                    <span className="text-center text-sm">{director.name}</span>
+                    <span className="text-sm font-medium text-center line-clamp-2">{director.name}</span>
                   </div>
                 ))}
               </div>
@@ -658,20 +712,20 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
 
       {activeTab === 'movies' && (
         <div className="mb-6">
-          <label className="block text-lg mb-2 flex items-center">
+          <label className="block text-lg font-semibold mb-2 flex items-center">
             <FaFilm className="mr-2" /> Favorite Movies (Select at least 3)
           </label>
-          <div className="flex mb-4">
+          <div className="flex flex-col sm:flex-row gap-2 mb-4">
             <input
               type="text"
               value={movieSearchQuery}
               onChange={(e) => setMovieSearchQuery(e.target.value)}
               placeholder="Search for movies..."
-              className="flex-1 p-2 border rounded-l-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
+              className="flex-1 p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
             <button
               onClick={handleMovieSearch}
-              className="flex items-center px-4 py-2 bg-purple-600 text-white rounded-r-lg hover:bg-purple-700 transition"
+              className="flex items-center px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
             >
               <FaSearch className="mr-2" /> Search
             </button>
@@ -681,7 +735,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
                   setShowMovieSearchResults(false);
                   setMovieSearchQuery('');
                 }}
-                className="flex items-center px-4 py-2 ml-2 bg-gray-200 text-gray-700 rounded hover:bg-gray-300 transition"
+                className="flex items-center px-4 py-3 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition"
               >
                 <FaTimes className="mr-2" /> Back to Popular
               </button>
@@ -692,77 +746,48 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
               <button
                 onClick={() => fetchMoviePage(currentMoviePage - 1)}
                 disabled={currentMoviePage <= 1}
-                className="flex items-center px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
+                className="flex items-center px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition"
               >
                 <FaChevronLeft className="mr-1" /> Previous
               </button>
-              <span className="text-gray-600">
+              <span className="text-gray-600 font-medium">
                 Page {currentMoviePage} of {totalMoviePages}
               </span>
               <button
                 onClick={() => fetchMoviePage(currentMoviePage + 1)}
                 disabled={currentMoviePage >= totalMoviePages}
-                className="flex items-center px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 disabled:opacity-50"
+                className="flex items-center px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition"
               >
                 Next <FaChevronRight className="ml-1" />
               </button>
             </div>
           )}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
             {displayedMovies.map(movie => (
-              <label
+              <MovieCard
                 key={movie.id}
-                className={`flex flex-col items-center p-2 border rounded transition ${
-                  selectedMovies.includes(movie.id)
-                    ? 'bg-purple-100 border-purple-500'
-                    : 'hover:bg-purple-50'
-                }`}
-              >
-                <img
-                  src={
-                    movie.poster_path
-                      ? `https://image.tmdb.org/t/p/w200${movie.poster_path}`
-                      : 'https://via.placeholder.com/200x300?text=No+Image'
-                  }
-                  alt={movie.title}
-                  className="w-full h-40 object-cover mb-2 rounded"
-                />
-                <input
-                  type="checkbox"
-                  checked={selectedMovies.includes(movie.id)}
-                  onChange={(e) => handleMovieChange(movie.id, e.target.checked)}
-                  className="rounded text-purple-600 focus:ring-purple-500"
-                />
-                <span className="text-center text-sm mt-1">{movie.title}</span>
-              </label>
+                movie={movie}
+                isSelected={selectedMovies.includes(movie.id)}
+                onChange={handleMovieChange}
+                isSelectable={true}
+              />
             ))}
           </div>
           {selectedMovieObjects.length > 0 && (
             <div className="mt-6">
-              <h3 className="text-md font-semibold mb-2">Selected Movies</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              <h3 className="text-lg font-semibold mb-3">Selected Movies</h3>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
                 {selectedMovieObjects.map(movie => (
-                  <div key={movie.id} className="relative flex flex-col items-center p-2 border rounded">
-                    <button
-                      onClick={() => {
-                        setSelectedMovies(prev => prev.filter(id => id !== movie.id));
-                        setSelectedMovieObjects(prev => prev.filter(m => m.id !== movie.id));
-                      }}
-                      className="absolute top-1 right-1 text-gray-600 hover:text-red-600 focus:outline-none"
-                      aria-label={`Remove ${movie.title}`}
-                      style={{ background: 'rgba(255,255,255,0.8)', borderRadius: '50%', width: 24, height: 24, display: 'flex', justifyContent: 'center', alignItems: 'center' }}
-                    >
-                      ✕
-                    </button>
-                    <img
-                      src={movie.poster_path
-                        ? `https://image.tmdb.org/t/p/w200${movie.poster_path}`
-                        : 'https://via.placeholder.com/200x300?text=No+Image'}
-                      alt={movie.title}
-                      className="w-full h-40 object-cover mb-2 rounded"
-                    />
-                    <span className="text-center text-sm">{movie.title}</span>
-                  </div>
+                  <MovieCard
+                    key={movie.id}
+                    movie={movie}
+                    isSelected={true}
+                    onRemove={() => {
+                      setSelectedMovies(prev => prev.filter(id => id !== movie.id));
+                      setSelectedMovieObjects(prev => prev.filter(m => m.id !== movie.id));
+                    }}
+                    isSelectable={false}
+                  />
                 ))}
               </div>
             </div>
@@ -772,7 +797,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
 
       {activeTab === 'rating' && (
         <div className="mb-6">
-          <label className="block text-lg mb-2 flex items-center">
+          <label className="block text-lg font-semibold mb-2 flex items-center">
             <FaStar className="mr-2" /> Minimum Rating
           </label>
           <div className="flex items-center space-x-4">
@@ -785,7 +810,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
               onChange={(e) => setMinRating(parseFloat(e.target.value))}
               className="w-64 h-2 bg-purple-200 rounded-lg appearance-none cursor-pointer"
             />
-            <span className="text-xl font-bold">{minRating}/10</span>
+            <span className="text-xl font-bold text-purple-600">{minRating}/10</span>
           </div>
           <p className="text-gray-600 mt-2">
             Only show movies with rating higher than {minRating}
