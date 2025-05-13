@@ -4,15 +4,6 @@ import { toast } from 'react-toastify';
 import { FaSave, FaFilm, FaUser, FaStar, FaSearch, FaChevronLeft, FaChevronRight, FaTimes, FaUserTie } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 
-// TMDB API client
-const tmdbApi = axios.create({
-  baseURL: 'https://api.themoviedb.org/3',
-  headers: {
-    accept: 'application/json',
-    Authorization: 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyZDQ2MmI5MTYxZGM3NDIwMzI0NWVjMDcyOWRmZjM4NyIsIm5iZiI6MTc0NzA2MzAxOC41MzUsInN1YiI6IjY4MjIxMGVhMzJmNzNlMTJlNDczOTNjNyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Xx1dOcNyzFsIMIB3h3hD006NVEoZMFXsF6d7GVlUsTA'
-  }
-});
-
 // Reusable MovieCard component for consistent poster rendering
 const MovieCard = ({ movie, isSelected, onChange, onRemove, isSelectable }) => {
   const posterUrl = movie.poster_path
@@ -94,9 +85,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
   const [totalDirectorPages, setTotalDirectorPages] = useState(1);
   const [currentMoviePage, setCurrentMoviePage] = useState(1);
   const [totalMoviePages, setTotalMoviePages] = useState(1);
-  const [allActors, setAllActors] = useState([]);
-  const [allDirectors, setAllDirectors] = useState([]);
-  const [allMovies, setAllMovies] = useState([]);
 
   // Search result visibility flags
   const [showActorSearchResults, setShowActorSearchResults] = useState(false);
@@ -114,66 +102,52 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
         setIsLoading(true);
         console.log("Fetching initial data for email:", email);
 
-        const genresRes = await tmdbApi.get('/genre/movie/list');
+        // Fetch genres
+        const genresRes = await axios.get('http://localhost:8082/tmdb/genres');
 
-        let allFetchedActors = [];
-        let allFetchedDirectors = [];
-        let allFetchedMovies = [];
+        // Fetch initial actors, directors, movies
         const maxTmdbPages = 10;
+        let allActors = [];
+        let allDirectors = [];
+        let allMovies = [];
+
         for (let page = 1; page <= maxTmdbPages; page++) {
-          const personsRes = await tmdbApi.get(`/person/popular?page=${page}`);
-          const actors = personsRes.data.results.filter(person => person.known_for_department === 'Acting');
-          const directors = personsRes.data.results.filter(person => person.known_for_department === 'Directing');
-          allFetchedActors = [...allFetchedActors, ...actors];
-          allFetchedDirectors = [...allFetchedDirectors, ...directors];
-        }
-        for (let page = 1; page <= maxTmdbPages; page++) {
-          const moviesRes = await tmdbApi.get(`/movie/popular?page=${page}`);
-          allFetchedMovies = [...allFetchedMovies, ...moviesRes.data.results];
+          const actorsRes = await axios.get(`http://localhost:8082/tmdb/actors?page=${page}`);
+          const directorsRes = await axios.get(`http://localhost:8082/tmdb/directors?page=${page}`);
+          const moviesRes = await axios.get(`http://localhost:8082/tmdb/movies?page=${page}`);
+          allActors = [...allActors, ...actorsRes.data];
+          allDirectors = [...allDirectors, ...directorsRes.data];
+          allMovies = [...allMovies, ...moviesRes.data];
         }
 
-        allFetchedActors = Array.from(new Map(allFetchedActors.map(a => [a.id, a])).values());
-        allFetchedDirectors = Array.from(new Map(allFetchedDirectors.map(d => [d.id, d])).values());
-        allFetchedMovies = Array.from(new Map(allFetchedMovies.map(m => [m.id, m])).values());
+        // Deduplicate
+        allActors = Array.from(new Map(allActors.map(a => [a.id, a])).values());
+        allDirectors = Array.from(new Map(allDirectors.map(d => [d.id, d])).values());
+        allMovies = Array.from(new Map(allMovies.map(m => [m.id, m])).values());
 
-        setGenres(genresRes.data.genres);
-        setAllActors(allFetchedActors);
-        setActors(allFetchedActors.slice(0, ITEMS_PER_PAGE));
-        setTotalActorPages(Math.ceil(allFetchedActors.length / ITEMS_PER_PAGE));
-        setAllDirectors(allFetchedDirectors);
-        setDirectors(allFetchedDirectors.slice(0, ITEMS_PER_PAGE));
-        setTotalDirectorPages(Math.ceil(allFetchedDirectors.length / ITEMS_PER_PAGE));
-        setAllMovies(allFetchedMovies);
-        setMovies(allFetchedMovies.slice(0, ITEMS_PER_PAGE));
-        setTotalMoviePages(Math.ceil(allFetchedMovies.length / ITEMS_PER_PAGE));
+        setGenres(genresRes.data);
+        setActors(allActors.slice(0, ITEMS_PER_PAGE));
+        setTotalActorPages(Math.ceil(allActors.length / ITEMS_PER_PAGE));
+        setDirectors(allDirectors.slice(0, ITEMS_PER_PAGE));
+        setTotalDirectorPages(Math.ceil(allDirectors.length / ITEMS_PER_PAGE));
+        setMovies(allMovies.slice(0, ITEMS_PER_PAGE));
+        setTotalMoviePages(Math.ceil(allMovies.length / ITEMS_PER_PAGE));
 
+        // Fetch user preferences
         try {
           const preferencesRes = await axios.get(`http://localhost:8082/users/${email}/preferences`);
-          const prefs = preferencesRes.data;
-          console.log("Loaded preferences:", prefs);
+          const { preferences, favoriteMovies, favoriteActors, favoriteDirectors } = preferencesRes.data;
 
-          setSelectedGenres(prefs.favoriteGenres?.map(id => Number(id)) || []);
-          setSelectedActors(prefs.favoriteActors?.map(id => Number(id)) || []);
-          setSelectedDirectors(prefs.favoriteDirectors?.map(id => Number(id)) || []);
-          setSelectedMovies(prefs.favoriteMovies?.map(id => Number(id)) || []);
-          setMinRating(prefs.minRating || 7);
+          setSelectedGenres(preferences.favoriteGenres?.map(id => Number(id)) || []);
+          console.log("Selected genres:", selectedGenres);
+          setSelectedActors(preferences.favoriteActors?.map(id => Number(id)) || []);
+          setSelectedDirectors(preferences.favoriteDirectors?.map(id => Number(id)) || []);
+          setSelectedMovies(preferences.favoriteMovies?.map(id => Number(id)) || []);
+          setMinRating(preferences.minRating || 7);
 
-          const moviePromises = prefs.favoriteMovies?.map(id =>
-            tmdbApi.get(`/movie/${id}`).then(res => res.data).catch(() => null)) || [];
-          const actorPromises = prefs.favoriteActors?.map(id =>
-            tmdbApi.get(`/person/${id}`).then(res => res.data).catch(() => null)) || [];
-          const directorPromises = prefs.favoriteDirectors?.map(id =>
-            tmdbApi.get(`/person/${id}`).then(res => res.data).catch(() => null)) || [];
-
-          const [movieResults, actorResults, directorResults] = await Promise.all([
-            Promise.all(moviePromises),
-            Promise.all(actorPromises),
-            Promise.all(directorPromises)
-          ]);
-
-          setSelectedMovieObjects(movieResults.filter(m => m).filter((v, i, a) => a.findIndex(t => t.id === v.id) === i));
-          setSelectedActorObjects(actorResults.filter(a => a && a.known_for_department === 'Acting').filter((v, i, a) => a.findIndex(t => t.id === v.id) === i));
-          setSelectedDirectorObjects(directorResults.filter(d => d && d.known_for_department === 'Directing').filter((v, i, a) => a.findIndex(t => t.id === v.id) === i));
+          setSelectedMovieObjects(favoriteMovies.filter(m => m));
+          setSelectedActorObjects(favoriteActors.filter(a => a));
+          setSelectedDirectorObjects(favoriteDirectors.filter(d => d));
         } catch (prefError) {
           console.warn("No preferences found or failed to load preferences:", prefError);
           setSelectedGenres([]);
@@ -203,8 +177,8 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
       return;
     }
     try {
-      const response = await tmdbApi.get(`/search/movie?query=${movieSearchQuery}`);
-      setMovieSearchResults(response.data.results);
+      const response = await axios.get(`http://localhost:8082/tmdb/search/movies?query=${encodeURIComponent(movieSearchQuery)}`);
+      setMovieSearchResults(response.data);
       setShowMovieSearchResults(true);
     } catch (error) {
       toast.error('Failed to search movies');
@@ -218,8 +192,8 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
       return;
     }
     try {
-      const response = await tmdbApi.get(`/search/person?query=${actorSearchQuery}`);
-      setActorSearchResults(response.data.results.filter(person => person.known_for_department === 'Acting'));
+      const response = await axios.get(`http://localhost:8082/tmdb/search/actors?query=${encodeURIComponent(actorSearchQuery)}`);
+      setActorSearchResults(response.data);
       setShowActorSearchResults(true);
     } catch (error) {
       toast.error('Failed to search actors');
@@ -233,8 +207,8 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
       return;
     }
     try {
-      const response = await tmdbApi.get(`/search/person?query=${directorSearchQuery}`);
-      setDirectorSearchResults(response.data.results.filter(person => person.known_for_department === 'Directing'));
+      const response = await axios.get(`http://localhost:8082/tmdb/search/directors?query=${encodeURIComponent(directorSearchQuery)}`);
+      setDirectorSearchResults(response.data);
       setShowDirectorSearchResults(true);
     } catch (error) {
       toast.error('Failed to search directors');
@@ -244,23 +218,8 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
   // Actor pagination
   const fetchActorPage = async (page) => {
     try {
-      const startIndex = (page - 1) * ITEMS_PER_PAGE;
-      const endIndex = startIndex + ITEMS_PER_PAGE;
-      if (endIndex > allActors.length) {
-        const additionalPages = 5;
-        let newActors = [...allActors];
-        for (let i = 1; i <= additionalPages; i++) {
-          const nextPage = Math.ceil(allActors.length / 20) + i;
-          if (nextPage > 500) break;
-          const response = await tmdbApi.get(`/person/popular?page=${nextPage}`);
-          const filteredActors = response.data.results.filter(person => person.known_for_department === 'Acting');
-          newActors = [...newActors, ...filteredActors];
-        }
-        newActors = Array.from(new Map(newActors.map(a => [a.id, a])).values());
-        setAllActors(newActors);
-        setTotalActorPages(Math.ceil(newActors.length / ITEMS_PER_PAGE));
-      }
-      setActors(allActors.slice(startIndex, endIndex));
+      const response = await axios.get(`http://localhost:8082/tmdb/actors?page=${page}`);
+      setActors(response.data);
       setCurrentActorPage(page);
     } catch (error) {
       toast.error('Failed to load actors');
@@ -271,23 +230,8 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
   // Director pagination
   const fetchDirectorPage = async (page) => {
     try {
-      const startIndex = (page - 1) * ITEMS_PER_PAGE;
-      const endIndex = startIndex + ITEMS_PER_PAGE;
-      if (endIndex > allDirectors.length) {
-        const additionalPages = 5;
-        let newDirectors = [...allDirectors];
-        for (let i = 1; i <= additionalPages; i++) {
-          const nextPage = Math.ceil(allDirectors.length / 20) + i;
-          if (nextPage > 500) break;
-          const response = await tmdbApi.get(`/person/popular?page=${nextPage}`);
-          const filteredDirectors = response.data.results.filter(person => person.known_for_department === 'Directing');
-          newDirectors = [...newDirectors, ...filteredDirectors];
-        }
-        newDirectors = Array.from(new Map(newDirectors.map(d => [d.id, d])).values());
-        setAllDirectors(newDirectors);
-        setTotalDirectorPages(Math.ceil(newDirectors.length / ITEMS_PER_PAGE));
-      }
-      setDirectors(allDirectors.slice(startIndex, endIndex));
+      const response = await axios.get(`http://localhost:8082/tmdb/directors?page=${page}`);
+      setDirectors(response.data);
       setCurrentDirectorPage(page);
     } catch (error) {
       toast.error('Failed to load directors');
@@ -298,22 +242,8 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
   // Movie pagination
   const fetchMoviePage = async (page) => {
     try {
-      const startIndex = (page - 1) * ITEMS_PER_PAGE;
-      const endIndex = startIndex + ITEMS_PER_PAGE;
-      if (endIndex > allMovies.length) {
-        const additionalPages = 5;
-        let newMovies = [...allMovies];
-        for (let i = 1; i <= additionalPages; i++) {
-          const nextPage = Math.ceil(allMovies.length / 20) + i;
-          if (nextPage > 500) break;
-          const response = await tmdbApi.get(`/movie/popular?page=${nextPage}`);
-          newMovies = [...newMovies, ...response.data.results];
-        }
-        newMovies = Array.from(new Map(newMovies.map(m => [m.id, m])).values());
-        setAllMovies(newMovies);
-        setTotalMoviePages(Math.ceil(newMovies.length / ITEMS_PER_PAGE));
-      }
-      setMovies(allMovies.slice(startIndex, endIndex));
+      const response = await axios.get(`http://localhost:8082/tmdb/movies?page=${page}`);
+      setMovies(response.data);
       setCurrentMoviePage(page);
     } catch (error) {
       toast.error('Failed to load movies');

@@ -12,6 +12,7 @@
         </processorPath>
         <module name="proxyservice" />
         <module name="recommendationservice" />
+        <module name="authservice" />
         <module name="userservice" />
       </profile>
       <profile name="Maven default annotation processors profile" enabled="true">

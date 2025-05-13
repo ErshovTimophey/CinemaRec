@@ -76,7 +76,6 @@ services:
 volumes:
   postgres_data:
   pgadmin:
-  redis_data:
 
 networks:
   postgres_network:
