@@ -52,33 +52,43 @@ public class TmdbService {
         try {
             Random random = new Random();
             RecommendationsByCategory result = new RecommendationsByCategory();
+            // Множество для отслеживания использованных фильмов (по id) между категориями
+            Set<Integer> usedMovieIds = new HashSet<>();
 
             // Рекомендации по похожим фильмам (5 страниц)
             List<TmdbMovie> movieRecommendations = new ArrayList<>();
             for (String movieId : favoriteMovies) {
                 movieRecommendations.addAll(getSimilarMovies(movieId, 5));
             }
-            result.setMovieRecommendations(filterAndLimit(movieRecommendations, minRating, random, 20));
+            result.setMovieRecommendations(filterAndLimit(movieRecommendations, minRating, random, 20, usedMovieIds));
+            log.debug("Movie recommendations: {} films, unique IDs added: {}",
+                    result.getMovieRecommendations().size(), usedMovieIds.size());
 
             // Рекомендации по актерам (5 страниц)
             List<TmdbMovie> actorRecommendations = new ArrayList<>();
             for (String actorId : favoriteActors) {
                 actorRecommendations.addAll(getMoviesByPerson(actorId, "cast"));
             }
-            result.setActorRecommendations(filterAndLimit(actorRecommendations, minRating, random, 20));
+            result.setActorRecommendations(filterAndLimit(actorRecommendations, minRating, random, 20, usedMovieIds));
+            log.debug("Actor recommendations: {} films, unique IDs added: {}",
+                    result.getActorRecommendations().size(), usedMovieIds.size());
 
             // Рекомендации по режиссерам (5 страниц)
             List<TmdbMovie> directorRecommendations = new ArrayList<>();
             for (String directorId : favoriteDirectors) {
                 directorRecommendations.addAll(getMoviesByPerson(directorId, "crew"));
             }
-            result.setDirectorRecommendations(filterAndLimit(directorRecommendations, minRating, random, 20));
+            result.setDirectorRecommendations(filterAndLimit(directorRecommendations, minRating, random, 20, usedMovieIds));
+            log.debug("Director recommendations: {} films, unique IDs added: {}",
+                    result.getDirectorRecommendations().size(), usedMovieIds.size());
 
             // Рекомендации по жанрам (5 страниц)
             String[] sortOptions = {"popularity.desc", "vote_average.desc", "release_date.desc"};
             String sortBy = sortOptions[random.nextInt(sortOptions.length)];
             List<TmdbMovie> genreRecommendations = discoverMovies(favoriteGenres, minRating, sortBy, 5);
-            result.setGenreRecommendations(filterAndLimit(genreRecommendations, minRating, random, 20));
+            result.setGenreRecommendations(filterAndLimit(genreRecommendations, minRating, random, 20, usedMovieIds));
+            log.debug("Genre recommendations: {} films, unique IDs added: {}",
+                    result.getGenreRecommendations().size(), usedMovieIds.size());
 
             return result;
 
@@ -88,30 +98,50 @@ public class TmdbService {
         }
     }
 
-    private List<TmdbMovie> filterAndLimit(List<TmdbMovie> movies, Double minRating, Random random, int limit) {
+    private List<TmdbMovie> filterAndLimit(List<TmdbMovie> movies, Double minRating, Random random, int limit, Set<Integer> usedMovieIds) {
+        // Дедупликация внутри входного списка фильмов
+        Map<Integer, TmdbMovie> uniqueMovies = new LinkedHashMap<>();
+        for (TmdbMovie movie : movies) {
+            if (!uniqueMovies.containsKey(movie.getId())) {
+                uniqueMovies.put(movie.getId(), movie);
+            }
+        }
+        List<TmdbMovie> deduplicatedMovies = new ArrayList<>(uniqueMovies.values());
+        log.debug("Deduplicated input list: {} movies reduced to {} unique movies", movies.size(), deduplicatedMovies.size());
+
         List<TmdbMovie> filteredMovies = new ArrayList<>(
-                movies.stream()
+                deduplicatedMovies.stream()
                         .filter(movie -> movie.getVoteAverage() >= minRating)
                         .filter(movie -> movie.getVoteCount() != null && movie.getVoteCount() >= MIN_VOTE_COUNT)
                         .filter(movie -> movie.getPopularity() != null && movie.getPopularity() >= MIN_POPULARITY)
                         .filter(movie -> movie.getProductionCountries() != null && !movie.getProductionCountries().contains(EXCLUDE_COUNTRY))
+                        // Исключаем фильмы, уже использованные в других категориях
+                        .filter(movie -> !usedMovieIds.contains(movie.getId()))
                         .sorted(Comparator.comparing(TmdbMovie::getVoteAverage).reversed())
                         .toList()
         );
 
         if (filteredMovies.isEmpty()) {
-            log.warn("No movies found after filtering with minRating={}, minVoteCount={}, minPopularity={}, excludeCountry={}",
-                    minRating, MIN_VOTE_COUNT, MIN_POPULARITY, EXCLUDE_COUNTRY);
+            log.warn("No movies found after filtering with minRating={}, minVoteCount={}, minPopularity={}, excludeCountry={}, usedMovieIds={}",
+                    minRating, MIN_VOTE_COUNT, MIN_POPULARITY, EXCLUDE_COUNTRY, usedMovieIds.size());
             return Collections.emptyList();
         }
 
         Collections.shuffle(filteredMovies, random);
-        return filteredMovies.stream()
+        List<TmdbMovie> selectedMovies = filteredMovies.stream()
                 .limit(limit)
                 .toList();
+
+        // Добавляем ID выбранных фильмов в usedMovieIds
+        selectedMovies.forEach(movie -> usedMovieIds.add(movie.getId()));
+        log.debug("Filtered and selected {} movies, new usedMovieIds size: {}", selectedMovies.size(), usedMovieIds.size());
+
+        return selectedMovies;
     }
 
     private List<TmdbMovie> getSimilarMovies(String movieId, int pages) {
+        // Множество для отслеживания уникальных фильмов внутри метода
+        Set<Integer> seenMovieIds = new HashSet<>();
         List<TmdbMovie> movies = new ArrayList<>();
         for (int page = 1; page <= pages; page++) {
             String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
@@ -121,8 +151,15 @@ public class TmdbService {
                     .queryParam("without_countries", EXCLUDE_COUNTRY)
                     .buildAndExpand(movieId)
                     .toUriString();
-            movies.addAll(fetchMovies(url));
+            List<TmdbMovie> pageMovies = fetchMovies(url);
+            for (TmdbMovie movie : pageMovies) {
+                if (!seenMovieIds.contains(movie.getId())) {
+                    movies.add(movie);
+                    seenMovieIds.add(movie.getId());
+                }
+            }
         }
+        log.debug("getSimilarMovies for movieId={} returned {} unique movies from {} total", movieId, movies.size(), seenMovieIds.size());
         return movies;
     }
 
@@ -138,15 +175,27 @@ public class TmdbService {
 
         if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
             List<Map<String, Object>> credits = (List<Map<String, Object>>) response.getBody().get(creditType);
-            return credits.stream()
-                    .map(this::mapToTmdbMovie)
-                    .filter(movie -> movie.getProductionCountries() != null && !movie.getProductionCountries().contains(EXCLUDE_COUNTRY))
-                    .toList();
+            // Множество для отслеживания уникальных фильмов
+            Set<Integer> seenMovieIds = new HashSet<>();
+            List<TmdbMovie> movies = new ArrayList<>();
+            for (Map<String, Object> credit : credits) {
+                TmdbMovie movie = mapToTmdbMovie(credit);
+                if (movie.getProductionCountries() != null
+                        && !movie.getProductionCountries().contains(EXCLUDE_COUNTRY)
+                        && !seenMovieIds.contains(movie.getId())) {
+                    movies.add(movie);
+                    seenMovieIds.add(movie.getId());
+                }
+            }
+            log.debug("getMoviesByPerson for personId={} (type={}) returned {} unique movies", personId, creditType, movies.size());
+            return movies;
         }
         return Collections.emptyList();
     }
 
     private List<TmdbMovie> discoverMovies(List<String> genres, Double minRating, String sortBy, int pages) {
+        // Множество для отслеживания уникальных фильмов
+        Set<Integer> seenMovieIds = new HashSet<>();
         List<TmdbMovie> movies = new ArrayList<>();
         String genreQuery = String.join(",", genres.stream().map(String::valueOf).toList());
 
@@ -162,8 +211,15 @@ public class TmdbService {
                     .queryParam("page", page)
                     .build()
                     .toUriString();
-            movies.addAll(fetchMovies(url));
+            List<TmdbMovie> pageMovies = fetchMovies(url);
+            for (TmdbMovie movie : pageMovies) {
+                if (!seenMovieIds.contains(movie.getId())) {
+                    movies.add(movie);
+                    seenMovieIds.add(movie.getId());
+                }
+            }
         }
+        log.debug("discoverMovies for genres={} returned {} unique movies", genreQuery, movies.size());
         return movies;
     }
 
@@ -276,9 +332,6 @@ public class TmdbService {
                 }
             }
 
-           /* // Награды (TMDB не предоставляет данные о наградах, используем заглушку)
-            details.setAwards("Information about awards is not available via TMDB API.");*/
-
             return details;
 
         } catch (Exception e) {
@@ -326,6 +379,5 @@ public class TmdbService {
         private List<String> genres = new ArrayList<>();
         private List<String> actors = new ArrayList<>();
         private List<String> directors = new ArrayList<>();
-        /*private String awards;*/
     }
 }
