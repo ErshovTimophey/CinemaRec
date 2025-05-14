@@ -12,7 +12,7 @@ services:
     volumes:
       - postgres_data:/data/postgres/inf
     networks:
-      - postgres_network
+      - app_network
     restart: unless-stopped
 
   pgadmin:
@@ -25,7 +25,7 @@ services:
     ports:
       - "5050:80"
     networks:
-      - postgres_network
+      - app_network
     volumes:
       - pgadmin:/var/lib/pgadmin/inf
     restart: unless-stopped
@@ -61,8 +61,24 @@ services:
     volumes:
       - redis_data:/data
     networks:
-      - postgres_network
+      - app_network
     restart: unless-stopped
+
+  localstack:
+    image: localstack/localstack:3.8.1
+    ports:
+      - "4566:4566"
+    environment:
+      - SERVICES=s3,server
+      - DEFAULT_REGION=us-east-1
+      - HOSTNAME_EXTERNAL=localhost
+      - DEBUG=1
+      - START_WEB=1
+    volumes:
+      - localstack_data:/var/lib/localstack
+      - ./localstack/init-aws.sh:/etc/localstack/init/ready.d/init-aws.sh
+    networks:
+      - app_network
 
 # добавить, для залива на сервер
 #  authservice:
@@ -76,7 +92,9 @@ services:
 volumes:
   postgres_data:
   pgadmin:
+  redis_data:
+  localstack_data:
 
 networks:
-  postgres_network:
+  app_network:
     driver: bridge

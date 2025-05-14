@@ -3,7 +3,13 @@
   <component name="CompilerConfiguration">
     <annotationProcessing>
       <profile default="true" name="Default" enabled="true" />
-      <profile name="Annotation profile for authservice" enabled="true">
+      <profile name="Maven default annotation processors profile" enabled="true">
+        <sourceOutputDir name="target/generated-sources/annotations" />
+        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
+        <outputRelativeToContentRoot value="true" />
+        <module name="common-dto" />
+      </profile>
+      <profile name="Annotation profile for reviewservice" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
@@ -12,19 +18,19 @@
         </processorPath>
         <module name="proxyservice" />
         <module name="recommendationservice" />
+        <module name="reviewservice" />
         <module name="authservice" />
+        <module name="imagestorageservice" />
         <module name="userservice" />
-      </profile>
-      <profile name="Maven default annotation processors profile" enabled="true">
-        <sourceOutputDir name="target/generated-sources/annotations" />
-        <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
-        <outputRelativeToContentRoot value="true" />
-        <module name="common-dto" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
       <module name="authservice (1)" target="17" />
       <module name="authservice (2)" target="17" />
+      <module name="recommendationservice (1)" target="17" />
+      <module name="recommendationservice (2)" target="17" />
+      <module name="reviewservice (1)" target="17" />
+      <module name="reviewservice (2)" target="17" />
       <module name="userservice (1)" target="17" />
       <module name="userservice (2)" target="17" />
       <module name="userservice (3)" target="17" />
@@ -35,8 +41,14 @@
       <module name="authservice" options="-parameters" />
       <module name="authservice (1)" options="-parameters" />
       <module name="authservice (2)" options="-parameters" />
+      <module name="imagestorageservice" options="-parameters" />
       <module name="proxyservice" options="-parameters" />
       <module name="recommendationservice" options="-parameters" />
+      <module name="recommendationservice (1)" options="-parameters" />
+      <module name="recommendationservice (2)" options="-parameters" />
+      <module name="reviewservice" options="-parameters" />
+      <module name="reviewservice (1)" options="-parameters" />
+      <module name="reviewservice (2)" options="-parameters" />
       <module name="userservice" options="-parameters" />
       <module name="userservice (1)" options="-parameters" />
       <module name="userservice (2)" options="-parameters" />

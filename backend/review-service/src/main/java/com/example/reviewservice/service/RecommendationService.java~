@@ -1,0 +1,91 @@
+package com.example.reviewservice.service;
+
+import com.example.dto.PreferencesEvent;
+import com.example.reviewservice.repository.RecommendationRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class RecommendationService {
+    private final TmdbService tmdbService;
+    private final RecommendationRepository recommendationRepository;
+
+    @KafkaListener(topics = "user-preferences", groupId = "recommendation-group")
+    @Transactional
+    public void handlePreferencesEvent(PreferencesEvent event) {
+        log.info("Received preferences event for user: {}", event.getEmail());
+
+        // Delete old recommendations
+        recommendationRepository.deleteByEmail(event.getEmail());
+
+        // Get new recommendations from TMDB
+        TmdbService.RecommendationsByCategory recommendations = tmdbService.getRecommendations(
+                event.getFavoriteGenres(),
+                event.getFavoriteActors(),
+                event.getFavoriteMovies(),
+                event.getFavoriteDirectors(),
+                event.getMinRating()
+        );
+
+        // Save recommendations by category
+        List<Recommendation> allRecommendations = new ArrayList<>();
+        allRecommendations.addAll(mapToRecommendations(recommendations.getActorRecommendations(), event.getEmail(), "actors"));
+        allRecommendations.addAll(mapToRecommendations(recommendations.getGenreRecommendations(), event.getEmail(), "genres"));
+        allRecommendations.addAll(mapToRecommendations(recommendations.getDirectorRecommendations(), event.getEmail(), "directors"));
+        allRecommendations.addAll(mapToRecommendations(recommendations.getMovieRecommendations(), event.getEmail(), "movies"));
+
+        recommendationRepository.saveAll(allRecommendations);
+        log.info("Saved {} recommendations for user: {}", allRecommendations.size(), event.getEmail());
+    }
+
+    private List<Recommendation> mapToRecommendations(List<TmdbMovie> movies, String email, String category) {
+        return movies.stream()
+                .map(movie -> {
+                    Recommendation rec = new Recommendation();
+                    rec.setEmail(email);
+                    rec.setMovieId(movie.getId());
+                    rec.setMovieTitle(movie.getTitle());
+                    rec.setPosterUrl(tmdbService.getFullPosterUrl(movie.getPosterPath()));
+                    rec.setRating(movie.getVoteAverage());
+                    rec.setOverview(movie.getOverview());
+                    rec.setWatched(false);
+                    rec.setCategory(category);
+
+                    tmdbService.loadGenresIfNeeded();
+                    List<String> genreNames = movie.getGenreIds().stream()
+                            .map(tmdbService.getGenreMap()::get)
+                            .filter(Objects::nonNull)
+                            .toList();
+                    if (!genreNames.isEmpty()) {
+                        rec.setGenres(String.join(", ", genreNames));
+                    } else {
+                        rec.setGenres(null);
+                    }
+                    return rec;
+                })
+                .collect(Collectors.toList());
+    }
+
+    public List<Recommendation> getRecommendationsForUser(String email) {
+        return recommendationRepository.findByEmail(email);
+    }
+
+    @Transactional
+    public void markMovieAsWatched(String email, Integer movieId) {
+        recommendationRepository.findByEmailAndMovieId(email, movieId)
+                .ifPresent(recommendation -> {
+                    recommendation.setWatched(true);
+                    recommendationRepository.save(recommendation);
+                });
+    }
+}

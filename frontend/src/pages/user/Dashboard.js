@@ -100,7 +100,7 @@ const Dashboard = () => {
                 <div className="flex-1 p-8">
                     {activeTab === 'recommendations' && email && <MovieRecommendations email={email} />}
                     {activeTab === 'statistics' && <Statistics />}
-                    {activeTab === 'reviews' && <Reviews />}
+                    {activeTab === 'reviews' && email && <Reviews email={email} />}
                     {activeTab === 'quizzes' && <Quizzes />}
                 </div>
             </div>
