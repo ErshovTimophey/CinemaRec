@@ -22,9 +22,9 @@ public class QuizController {
     private QuizService quizService;
 
     @GetMapping
-    public ResponseEntity<List<QuizDTO>> getAllQuizzes(@RequestParam("email") String email) {
-        logger.info("Fetching all available quizzes for user: {}", email);
-        return ResponseEntity.ok(quizService.getAllAvailableQuizzes(email));
+    public ResponseEntity<List<QuizDTO>> getAllQuizzes() {
+        logger.info("Fetching all quizzes");
+        return ResponseEntity.ok(quizService.getAllQuizzes());
     }
 
     @PostMapping(consumes = {"multipart/form-data"})
@@ -36,11 +36,27 @@ public class QuizController {
         return ResponseEntity.status(HttpStatus.CREATED).body(createdQuiz);
     }
 
+    @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
+    public ResponseEntity<QuizDTO> updateQuiz(
+            @PathVariable("id") Long quizId,
+            @Valid @ModelAttribute QuizDTO quizDTO,
+            @RequestParam("email") String email) {
+        logger.info("Updating quiz ID: {} by user: {}", quizId, email);
+        try {
+            QuizDTO updatedQuiz = quizService.updateQuiz(quizId, quizDTO, email);
+            return ResponseEntity.ok(updatedQuiz);
+        } catch (IllegalArgumentException e) {
+            logger.error("Error updating quiz: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(null);
+        }
+    }
+
     @PostMapping("/results")
     public ResponseEntity<QuizResultDTO> saveQuizResult(
             @Valid @RequestBody QuizResultDTO resultDTO,
             @RequestParam("email") String email) {
         logger.info("Saving quiz result for user: {}", email);
+        logger.info("Result: {}", resultDTO.getScore());
         QuizResultDTO savedResult = quizService.saveQuizResult(resultDTO, email);
         return ResponseEntity.status(HttpStatus.CREATED).body(savedResult);
     }

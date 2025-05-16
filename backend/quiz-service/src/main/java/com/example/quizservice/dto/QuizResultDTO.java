@@ -9,7 +9,7 @@ public class QuizResultDTO {
     private Long id;
     private String userEmail;
     private Long quizId;
-    private int score;
-    private int totalQuestions;
+    private Integer score;
+    private Integer totalQuestions;
     private LocalDateTime completedAt;
 }

@@ -32,11 +32,9 @@ public class QuizService {
     @Autowired
     private ImageStorageClient imageStorageClient;
 
-    public List<QuizDTO> getAllAvailableQuizzes(String userEmail) {
-        logger.info("Fetching all available quizzes for user: {}", userEmail);
-        // Fetch public quizzes and quizzes created by the user
-        List<Quiz> quizzes = quizRepository.findByIsPublicTrueOrCreatorEmail(userEmail);
-        return quizzes.stream()
+    public List<QuizDTO> getAllQuizzes() {
+        logger.info("Fetching all quizzes");
+        return quizRepository.findAll().stream()
                 .map(this::convertToDTO)
                 .collect(Collectors.toList());
     }
@@ -48,7 +46,6 @@ public class QuizService {
         quiz.setTitle(quizDTO.getTitle());
         quiz.setDescription(quizDTO.getDescription());
         quiz.setCreatorEmail(creatorEmail);
-        quiz.setPublic(quizDTO.isPublic());
 
         List<Question> questions = quizDTO.getQuestions().stream().map(qDTO -> {
             Question question = new Question();
@@ -71,12 +68,74 @@ public class QuizService {
     }
 
     @Transactional
+    public QuizDTO updateQuiz(Long quizId, QuizDTO quizDTO, String userEmail) {
+        logger.info("Updating quiz ID: {} by user: {}", quizId, userEmail);
+        Quiz quiz = quizRepository.findById(quizId)
+                .orElseThrow(() -> new IllegalArgumentException("Quiz not found with ID: " + quizId));
+
+        if (!quiz.getCreatorEmail().equals(userEmail)) {
+            throw new IllegalArgumentException("Only the creator can edit this quiz");
+        }
+
+        quiz.setTitle(quizDTO.getTitle());
+        quiz.setDescription(quizDTO.getDescription());
+
+        // Update questions in place
+        List<Question> existingQuestions = quiz.getQuestions();
+        List<QuestionDTO> newQuestionDTOs = quizDTO.getQuestions();
+
+        // Remove questions that are no longer in the DTO
+        existingQuestions.removeIf(existingQuestion ->
+                newQuestionDTOs.stream().noneMatch(dto ->
+                        dto.getId() != null && dto.getId().equals(existingQuestion.getId())
+                )
+        );
+
+        // Update or add questions
+        for (QuestionDTO qDTO : newQuestionDTOs) {
+            Question question;
+            if (qDTO.getId() != null) {
+                // Update existing question
+                question = existingQuestions.stream()
+                        .filter(q -> q.getId().equals(qDTO.getId()))
+                        .findFirst()
+                        .orElse(null);
+                if (question == null) {
+                    // If ID is provided but question not found, create new
+                    question = new Question();
+                    existingQuestions.add(question);
+                }
+            } else {
+                // New question
+                question = new Question();
+                existingQuestions.add(question);
+            }
+
+            question.setText(qDTO.getText());
+            question.setAnswers(qDTO.getAnswers());
+            question.setCorrectAnswer(qDTO.getCorrectAnswer());
+            if (qDTO.getImage() != null && !qDTO.getImage().isEmpty()) {
+                String imageUrl = imageStorageClient.uploadImage(qDTO.getImage());
+                question.setImageUrl(imageUrl);
+                qDTO.setImageUrl(imageUrl);
+                logger.info("Uploaded question image: {}", imageUrl);
+            } else if (qDTO.getImageUrl() != null) {
+                question.setImageUrl(qDTO.getImageUrl());
+            } else {
+                question.setImageUrl(null);
+            }
+        }
+
+        Quiz updatedQuiz = quizRepository.save(quiz);
+        logger.info("Quiz updated with ID: {}", updatedQuiz.getId());
+        return convertToDTO(updatedQuiz);
+    }
+
+    @Transactional
     public QuizResultDTO saveQuizResult(QuizResultDTO resultDTO, String userEmail) {
         logger.info("Saving quiz result for quiz ID: {}, user: {}", resultDTO.getQuizId(), userEmail);
-        // Check current number of results
         List<QuizResult> existingResults = quizResultRepository.findByUserEmail(userEmail);
         if (existingResults.size() >= 4) {
-            // Sort by completedAt ascending (oldest first) and delete excess
             existingResults.sort((a, b) -> a.getCompletedAt().compareTo(b.getCompletedAt()));
             List<QuizResult> toDelete = existingResults.subList(0, existingResults.size() - 3);
             quizResultRepository.deleteAll(toDelete);
@@ -108,7 +167,6 @@ public class QuizService {
         dto.setTitle(quiz.getTitle());
         dto.setDescription(quiz.getDescription());
         dto.setCreatorEmail(quiz.getCreatorEmail());
-        dto.setPublic(quiz.isPublic());
         dto.setQuestions(quiz.getQuestions().stream().map(q -> {
             QuestionDTO qDTO = new QuestionDTO();
             qDTO.setId(q.getId());

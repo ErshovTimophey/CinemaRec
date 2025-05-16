@@ -11,5 +11,4 @@ public class QuizDTO {
     private String description;
     private String creatorEmail;
     private List<QuestionDTO> questions;
-    private boolean isPublic;
 }

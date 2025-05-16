@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { FaTrophy, FaCheck, FaTimes, FaPlus, FaTrash } from 'react-icons/fa';
+import { FaTrophy, FaCheck, FaTimes, FaPlus, FaTrash, FaEdit } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 
@@ -10,15 +10,22 @@ const Quizzes = ({ email }) => {
     const [currentQuestion, setCurrentQuestion] = useState(0);
     const [selectedAnswer, setSelectedAnswer] = useState(null);
     const [score, setScore] = useState(0);
+    const [solidScore, setSolidScore] = useState(0);
     const [quizCompleted, setQuizCompleted] = useState(false);
     const [loading, setLoading] = useState(true);
     const [answerFeedback, setAnswerFeedback] = useState(null);
     const [showCreateForm, setShowCreateForm] = useState(false);
+    const [showEditForm, setShowEditForm] = useState(false);
+    const [editQuizId, setEditQuizId] = useState(null);
     const [pastResults, setPastResults] = useState([]);
     const [newQuiz, setNewQuiz] = useState({
         title: '',
         description: '',
-        isPublic: false,
+        questions: [{ text: '', image: null, answers: ['', '', '', ''], correctAnswer: 0 }]
+    });
+    const [editQuiz, setEditQuiz] = useState({
+        title: '',
+        description: '',
         questions: [{ text: '', image: null, answers: ['', '', '', ''], correctAnswer: 0 }]
     });
 
@@ -28,12 +35,11 @@ const Quizzes = ({ email }) => {
                 if (!email) {
                     throw new Error('No user email provided');
                 }
-                // Fetch quizzes
-                const quizzesResponse = await axios.get(`http://localhost:8087/quizzes?email=${encodeURIComponent(email)}`);
+                // Fetch all quizzes
+                const quizzesResponse = await axios.get(`http://localhost:8087/quizzes`);
                 setQuizzes(quizzesResponse.data);
                 // Fetch past results
-                const resultsResponse = await axios.get(`http://localhost:8087/quizzes/results?email=${encodeURIComponent(email)}`);
-                // Sort by completedAt descending and take top 4
+                const resultsResponse = await axios.get(`http://localhost:8087/quizzes/results?email=${email}`);
                 const sortedResults = resultsResponse.data
                     .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
                     .slice(0, 4);
@@ -69,19 +75,25 @@ const Quizzes = ({ email }) => {
         const isCorrect = activeQuiz.questions[currentQuestion].correctAnswer === selectedAnswer;
         setAnswerFeedback(isCorrect ? 'correct' : 'incorrect');
         if (isCorrect) {
-            setScore(score + 1);
+            setScore(prevScore => {
+                const newScore = prevScore + 1;
+                console.log('Updated score:', newScore); // Log score update
+                return newScore;
+            });
         }
 
-        setTimeout(() => {
-            if (currentQuestion < activeQuiz.questions.length - 1) {
+        if (currentQuestion < activeQuiz.questions.length - 1) {
+            setTimeout(() => {
                 setCurrentQuestion(currentQuestion + 1);
                 setSelectedAnswer(null);
                 setAnswerFeedback(null);
-            } else {
-                setQuizCompleted(true);
-                saveQuizResult();
-            }
-        }, 1000);
+            }, 1000);
+        } else {
+            setQuizCompleted(true);
+            // Call saveQuizResult synchronously with current score
+            setSolidScore(score + (isCorrect ? 1 : 0));
+            saveQuizResult();
+        }
     };
 
     const saveQuizResult = async () => {
@@ -89,12 +101,13 @@ const Quizzes = ({ email }) => {
             if (!email) {
                 throw new Error('No user email provided');
             }
+            console.log('Saving quiz result with score:', score, 'for quiz ID:', activeQuiz.id);
             const response = await axios.post(`http://localhost:8087/quizzes/results?email=${encodeURIComponent(email)}`, {
                 quizId: activeQuiz.id,
-                score: score,
+                score: solidScore,
                 totalQuestions: activeQuiz.questions.length
             });
-            // Add new result, sort by completedAt, and keep only top 4
+            console.log('Received response:', response.data);
             const updatedResults = [
                 response.data,
                 ...pastResults
@@ -117,36 +130,50 @@ const Quizzes = ({ email }) => {
         setNewQuiz({ ...newQuiz, [field]: value });
     };
 
-    const handleQuestionChange = (index, field, value) => {
-        const updatedQuestions = [...newQuiz.questions];
+    const handleEditQuizChange = (field, value) => {
+        setEditQuiz({ ...editQuiz, [field]: value });
+    };
+
+    const handleQuestionChange = (index, field, value, isEdit = false) => {
+        const quizState = isEdit ? editQuiz : newQuiz;
+        const setQuizState = isEdit ? setEditQuiz : setNewQuiz;
+        const updatedQuestions = [...quizState.questions];
         updatedQuestions[index] = { ...updatedQuestions[index], [field]: value };
-        setNewQuiz({ ...newQuiz, questions: updatedQuestions });
+        setQuizState({ ...quizState, questions: updatedQuestions });
     };
 
-    const handleAnswerChange = (qIndex, aIndex, value) => {
-        const updatedQuestions = [...newQuiz.questions];
+    const handleAnswerChange = (qIndex, aIndex, value, isEdit = false) => {
+        const quizState = isEdit ? editQuiz : newQuiz;
+        const setQuizState = isEdit ? setEditQuiz : setNewQuiz;
+        const updatedQuestions = [...quizState.questions];
         updatedQuestions[qIndex].answers[aIndex] = value;
-        setNewQuiz({ ...newQuiz, questions: updatedQuestions });
+        setQuizState({ ...quizState, questions: updatedQuestions });
     };
 
-    const addQuestion = () => {
-        setNewQuiz({
-            ...newQuiz,
-            questions: [...newQuiz.questions, { text: '', image: null, answers: ['', '', '', ''], correctAnswer: 0 }]
+    const addQuestion = (isEdit = false) => {
+        const quizState = isEdit ? editQuiz : newQuiz;
+        const setQuizState = isEdit ? setEditQuiz : setNewQuiz;
+        setQuizState({
+            ...quizState,
+            questions: [...quizState.questions, { text: '', image: null, answers: ['', '', '', ''], correctAnswer: 0 }]
         });
     };
 
-    const removeQuestion = (index) => {
-        setNewQuiz({
-            ...newQuiz,
-            questions: newQuiz.questions.filter((_, i) => i !== index)
+    const removeQuestion = (index, isEdit = false) => {
+        const quizState = isEdit ? editQuiz : newQuiz;
+        const setQuizState = isEdit ? setEditQuiz : setNewQuiz;
+        setQuizState({
+            ...quizState,
+            questions: quizState.questions.filter((_, i) => i !== index)
         });
     };
 
-    const handleImageChange = (index, file) => {
-        const updatedQuestions = [...newQuiz.questions];
+    const handleImageChange = (index, file, isEdit = false) => {
+        const quizState = isEdit ? editQuiz : newQuiz;
+        const setQuizState = isEdit ? setEditQuiz : setNewQuiz;
+        const updatedQuestions = [...quizState.questions];
         updatedQuestions[index].image = file;
-        setNewQuiz({ ...newQuiz, questions: updatedQuestions });
+        setQuizState({ ...quizState, questions: updatedQuestions });
     };
 
     const submitQuiz = async (e) => {
@@ -158,7 +185,6 @@ const Quizzes = ({ email }) => {
             const formData = new FormData();
             formData.append('title', newQuiz.title);
             formData.append('description', newQuiz.description);
-            formData.append('isPublic', newQuiz.isPublic);
             newQuiz.questions.forEach((q, index) => {
                 formData.append(`questions[${index}].text`, q.text);
                 if (q.image) {
@@ -170,7 +196,7 @@ const Quizzes = ({ email }) => {
                 formData.append(`questions[${index}].correctAnswer`, q.correctAnswer);
             });
 
-            const response = await axios.post(`http://localhost:8087/quizzes?email=${encodeURIComponent(email)}`, formData, {
+            const response = await axios.post(`http://localhost:8087/quizzes?email=${email}`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }
@@ -179,7 +205,6 @@ const Quizzes = ({ email }) => {
             setNewQuiz({
                 title: '',
                 description: '',
-                isPublic: false,
                 questions: [{ text: '', image: null, answers: ['', '', '', ''], correctAnswer: 0 }]
             });
             setShowCreateForm(false);
@@ -187,6 +212,61 @@ const Quizzes = ({ email }) => {
         } catch (error) {
             console.error('Error creating quiz:', error);
             toast.error(error.message || 'Failed to create quiz');
+        }
+    };
+
+    const startEditQuiz = (quiz) => {
+        setEditQuiz({
+            title: quiz.title,
+            description: quiz.description,
+            questions: quiz.questions.map(q => ({
+                text: q.text,
+                image: null, // Image re-upload required
+                answers: [...q.answers],
+                correctAnswer: q.correctAnswer
+            }))
+        });
+        setEditQuizId(quiz.id);
+        setShowEditForm(true);
+    };
+
+    const submitEditQuiz = async (e) => {
+        e.preventDefault();
+        try {
+            if (!email) {
+                throw new Error('No user email provided');
+            }
+            const formData = new FormData();
+            formData.append('title', editQuiz.title);
+            formData.append('description', editQuiz.description);
+            editQuiz.questions.forEach((q, index) => {
+                formData.append(`questions[${index}].text`, q.text);
+                if (q.image) {
+                    formData.append(`questions[${index}].image`, q.image);
+                }
+                q.answers.forEach((answer, aIndex) => {
+                    formData.append(`questions[${index}].answers[${aIndex}]`, answer);
+                });
+                formData.append(`questions[${index}].correctAnswer`, q.correctAnswer);
+            });
+
+            const response = await axios.put(`http://localhost:8087/quizzes/${editQuizId}?email=${email}`, formData, {
+                headers: {
+                    'Content-Type': 'multipart/form-data'
+                }
+            });
+            setQuizzes(quizzes.map(q => q.id === editQuizId ? response.data : q));
+            setEditQuiz({
+                title: '',
+                description: '',
+                questions: [{ text: '', image: null, answers: ['', '', '', ''], correctAnswer: 0 }]
+            });
+            setShowEditForm(false);
+            setEditQuizId(null);
+            toast.success('Quiz updated successfully');
+        } catch (error) {
+            console.error('Error updating quiz:', error);
+            toast.error(error.message || 'Failed to update quiz');
         }
     };
 
@@ -338,18 +418,6 @@ const Quizzes = ({ email }) => {
                                 rows="4"
                             ></textarea>
                         </div>
-                        <div className="mb-4">
-                            <label className="flex items-center">
-                                <input
-                                    type="checkbox"
-                                    checked={newQuiz.isPublic}
-                                    onChange={(e) => handleCreateQuizChange('isPublic', e.target.checked)}
-                                    className="mr-2"
-                                />
-                                Make this quiz public
-                            </label>
-                        </div>
-
                         {newQuiz.questions.map((question, qIndex) => (
                             <div key={qIndex} className="border p-4 mb-4 rounded-lg">
                                 <div className="flex justify-between items-center mb-2">
@@ -411,16 +479,14 @@ const Quizzes = ({ email }) => {
                                 </div>
                             </div>
                         ))}
-
                         <button
                             type="button"
-                            onClick={addQuestion}
+                            onClick={() => addQuestion()}
                             className="mb-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center"
                         >
                             <FaPlus className="mr-2" />
                             Add Question
                         </button>
-
                         <button
                             type="submit"
                             className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
@@ -431,21 +497,114 @@ const Quizzes = ({ email }) => {
                 </motion.div>
             )}
 
-            {/* Past Results */}
-            {pastResults.length > 0 && (
-                <div className="mt-8">
-                    <h3 className="text-xl font-bold mb-4">Your Past Quiz Results</h3>
-                    <div className="grid grid-cols-1 gap-4">
-                        {pastResults.map((result) => (
-                            <div key={result.id} className="bg-white p-4 rounded-lg shadow">
-                                <p><strong>Quiz ID:</strong> {result.quizId}</p>
-                                <p><strong>Score:</strong> {result.score} / {result.totalQuestions}</p>
-                                <p><strong>Completed:</strong> {new Date(result.completedAt).toLocaleString()}</p>
+            {/* Quiz Edit Form */}
+            {showEditForm && (
+                <motion.div
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white p-6 rounded-lg shadow mb-6"
+                >
+                    <h3 className="text-xl font-bold mb-4">Edit Quiz</h3>
+                    <form onSubmit={submitEditQuiz}>
+                        <div className="mb-4">
+                            <label className="block text-gray-700 mb-2">Title</label>
+                            <input
+                                type="text"
+                                value={editQuiz.title}
+                                onChange={(e) => handleEditQuizChange('title', e.target.value)}
+                                className="w-full p-2 border rounded-lg"
+                                required
+                            />
+                        </div>
+                        <div className="mb-4">
+                            <label className="block text-gray-700 mb-2">Description</label>
+                            <textarea
+                                value={editQuiz.description}
+                                onChange={(e) => handleEditQuizChange('description', e.target.value)}
+                                className="w-full p-2 border rounded-lg"
+                                rows="4"
+                            ></textarea>
+                        </div>
+                        {editQuiz.questions.map((question, qIndex) => (
+                            <div key={qIndex} className="border p-4 mb-4 rounded-lg">
+                                <div className="flex justify-between items-center mb-2">
+                                    <h4 className="font-semibold">Question {qIndex + 1}</h4>
+                                    {editQuiz.questions.length > 1 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => removeQuestion(qIndex, true)}
+                                            className="text-red-500 hover:text-red-700"
+                                        >
+                                            <FaTrash />
+                                        </button>
+                                    )}
+                                </div>
+                                <div className="mb-2">
+                                    <label className="block text-gray-700 mb-1">Question Text</label>
+                                    <input
+                                        type="text"
+                                        value={question.text}
+                                        onChange={(e) => handleQuestionChange(qIndex, 'text', e.target.value, true)}
+                                        className="w-full p-2 border rounded-lg"
+                                        required
+                                    />
+                                </div>
+                                <div className="mb-2">
+                                    <label className="block text-gray-700 mb-1">Image (optional)</label>
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => handleImageChange(qIndex, e.target.files[0], true)}
+                                        className="w-full p-2 border rounded-lg"
+                                    />
+                                </div>
+                                {question.answers.map((answer, aIndex) => (
+                                    <div key={aIndex} className="mb-2">
+                                        <label className="block text-gray-700 mb-1">Answer {aIndex + 1}</label>
+                                        <input
+                                            type="text"
+                                            value={answer}
+                                            onChange={(e) => handleAnswerChange(qIndex, aIndex, e.target.value, true)}
+                                            className="w-full p-2 border rounded-lg"
+                                            required
+                                        />
+                                    </div>
+                                ))}
+                                <div className="mb-2">
+                                    <label className="block text-gray-700 mb-1">Correct Answer</label>
+                                    <select
+                                        value={question.correctAnswer}
+                                        onChange={(e) => handleQuestionChange(qIndex, 'correctAnswer', parseInt(e.target.value), true)}
+                                        className="w-full p-2 border rounded-lg"
+                                    >
+                                        {question.answers.map((_, index) => (
+                                            <option key={index} value={index}>
+                                                Answer {index + 1}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
                             </div>
                         ))}
-                    </div>
-                </div>
+                        <button
+                            type="button"
+                            onClick={() => addQuestion(true)}
+                            className="mb-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition flex items-center"
+                        >
+                            <FaPlus className="mr-2" />
+                            Add Question
+                        </button>
+                        <button
+                            type="submit"
+                            className="w-full py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                        >
+                            Update Quiz
+                        </button>
+                    </form>
+                </motion.div>
             )}
+
+     
 
             {/* Available Quizzes */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-6">
@@ -457,17 +616,28 @@ const Quizzes = ({ email }) => {
                     >
                         <div className="p-6">
                             <h3 className="text-xl font-bold mb-2">{quiz.title}</h3>
-                            <p className="text-gray-600 mb-4">{quiz.description}</p>
+                            <p className="text-gray-600 mb-2">{quiz.description}</p>
+                            <p className="text-sm text-gray-500 mb-4">Created by: {quiz.creatorEmail}</p>
                             <div className="flex justify-between items-center">
                                 <span className="text-sm text-gray-500">
                                     {quiz.questions.length} questions
                                 </span>
-                                <button
-                                    onClick={() => startQuiz(quiz)}
-                                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
-                                >
-                                    Start Quiz
-                                </button>
+                                <div className="flex space-x-2">
+                                    <button
+                                        onClick={() => startQuiz(quiz)}
+                                        className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition"
+                                    >
+                                        Start Quiz
+                                    </button>
+                                    {quiz.creatorEmail === email && (
+                                        <button
+                                            onClick={() => startEditQuiz(quiz)}
+                                            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                                        >
+                                            <FaEdit />
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     </motion.div>
