@@ -1,9 +1,8 @@
-package com.example.reviewservice.client;
+package com.example.quizservice.client;
 
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -11,7 +10,4 @@ import org.springframework.web.multipart.MultipartFile;
 public interface ImageStorageClient {
     @PostMapping(value = "/images/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     String uploadImage(@RequestPart("image") MultipartFile image);
-
-    @PostMapping(value = "/images/delete")
-    void deleteImage(@RequestParam("imageUrl") String imageUrl);
 }

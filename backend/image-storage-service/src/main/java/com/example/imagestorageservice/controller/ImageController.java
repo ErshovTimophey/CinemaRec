@@ -23,4 +23,11 @@ public class ImageController {
         String imageUrl = s3Service.uploadImage(image);
         return ResponseEntity.ok(imageUrl);
     }
+
+    @PostMapping("/delete")
+    public ResponseEntity<Void> deleteImage(@RequestParam("imageUrl") String imageUrl) {
+        logger.info("Received image deletion request for URL: {}", imageUrl);
+        s3Service.deleteImage(imageUrl);
+        return ResponseEntity.noContent().build();
+    }
 }

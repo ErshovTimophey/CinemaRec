@@ -66,8 +66,21 @@ public class ReviewService {
         review.setRating(reviewDTO.getRating());
         review.setText(reviewDTO.getText());
 
+        // Start with existing image URLs
+        List<String> imageUrls = new ArrayList<>(review.getImageUrls());
+
+        // Remove images marked for deletion
+        if (reviewDTO.getDeletedImageUrls() != null && !reviewDTO.getDeletedImageUrls().isEmpty()) {
+            for (String deletedUrl : reviewDTO.getDeletedImageUrls()) {
+                imageUrls.remove(deletedUrl);
+                logger.info("Removed image URL: {}", deletedUrl);
+                // Optionally, notify ImageStorageClient to delete the image
+                imageStorageClient.deleteImage(deletedUrl);
+            }
+        }
+
+        // Add new images
         if (!reviewDTO.getImages().isEmpty()) {
-            List<String> imageUrls = new ArrayList<>(review.getImageUrls());
             for (MultipartFile image : reviewDTO.getImages()) {
                 if (!image.isEmpty()) {
                     String imageUrl = imageStorageClient.uploadImage(image);
@@ -75,9 +88,9 @@ public class ReviewService {
                     logger.info("Uploaded new image: {}", imageUrl);
                 }
             }
-            review.setImageUrls(imageUrls);
         }
 
+        review.setImageUrls(imageUrls);
         Review updatedReview = reviewRepository.save(review);
         logger.info("Review updated with ID: {}", updatedReview.getId());
         return convertToDTO(updatedReview);

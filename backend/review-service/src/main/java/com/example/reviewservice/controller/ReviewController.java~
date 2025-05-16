@@ -55,7 +55,6 @@ public class ReviewController {
         }
         try {
             if (deletedImageUrlsJson != null && !deletedImageUrlsJson.isEmpty()) {
-                logger.info("Deleted image URLs: {}", deletedImageUrlsJson);
                 List<String> deletedImageUrls = objectMapper.readValue(deletedImageUrlsJson, List.class);
                 reviewDTO.setDeletedImageUrls(deletedImageUrls);
             }

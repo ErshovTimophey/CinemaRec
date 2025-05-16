@@ -23,5 +23,6 @@ public class ReviewDTO {
     private String text;
     private List<MultipartFile> images = new ArrayList<>();
     private List<String> imageUrls = new ArrayList<>();
+    private List<String> deletedImageUrls = new ArrayList<>();
     private String createdAt;
 }

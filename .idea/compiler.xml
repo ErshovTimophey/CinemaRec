@@ -9,19 +9,20 @@
         <outputRelativeToContentRoot value="true" />
         <module name="common-dto" />
       </profile>
-      <profile name="Annotation profile for reviewservice" enabled="true">
+      <profile name="Annotation profile for authservice" enabled="true">
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
         <processorPath useClasspath="false">
           <entry name="$MAVEN_REPOSITORY$/org/projectlombok/lombok/1.18.32/lombok-1.18.32.jar" />
         </processorPath>
-        <module name="proxyservice" />
         <module name="recommendationservice" />
         <module name="reviewservice" />
         <module name="authservice" />
         <module name="imagestorageservice" />
         <module name="userservice" />
+        <module name="quizservice" />
+        <module name="proxyservice" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
@@ -43,6 +44,7 @@
       <module name="authservice (2)" options="-parameters" />
       <module name="imagestorageservice" options="-parameters" />
       <module name="proxyservice" options="-parameters" />
+      <module name="quizservice" options="-parameters" />
       <module name="recommendationservice" options="-parameters" />
       <module name="recommendationservice (1)" options="-parameters" />
       <module name="recommendationservice (2)" options="-parameters" />
