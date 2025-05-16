@@ -29,15 +29,11 @@ const Quizzes = ({ email }) => {
                     throw new Error('No user email provided');
                 }
                 // Fetch quizzes
-                const quizzesResponse = await axios.get(`http://localhost:8087/quizzes?email=${encodeURIComponent(email)}`);
+                const quizzesResponse = await axios.get(`http://localhost:8087/quizzes?email=${email}`);
                 setQuizzes(quizzesResponse.data);
                 // Fetch past results
-                const resultsResponse = await axios.get(`http://localhost:8087/quizzes/results?email=${encodeURIComponent(email)}`);
-                // Sort by completedAt descending and take top 4
-                const sortedResults = resultsResponse.data
-                    .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
-                    .slice(0, 4);
-                setPastResults(sortedResults);
+                const resultsResponse = await axios.get(`http://localhost:8087/quizzes/results?email=${email}`);
+                setPastResults(resultsResponse.data);
                 setLoading(false);
             } catch (error) {
                 console.error('Error fetching data:', error);
@@ -89,18 +85,12 @@ const Quizzes = ({ email }) => {
             if (!email) {
                 throw new Error('No user email provided');
             }
-            const response = await axios.post(`http://localhost:8087/quizzes/results?email=${encodeURIComponent(email)}`, {
+            const response = await axios.post(`http://localhost:8087/quizzes/results?email=${email}`, {
                 quizId: activeQuiz.id,
                 score: score,
                 totalQuestions: activeQuiz.questions.length
             });
-            // Add new result, sort by completedAt, and keep only top 4
-            const updatedResults = [
-                response.data,
-                ...pastResults
-            ].sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
-             .slice(0, 4);
-            setPastResults(updatedResults);
+            setPastResults([...pastResults, response.data]);
             toast.success('Quiz result saved successfully');
         } catch (error) {
             console.error('Error saving quiz result:', error);
@@ -170,7 +160,7 @@ const Quizzes = ({ email }) => {
                 formData.append(`questions[${index}].correctAnswer`, q.correctAnswer);
             });
 
-            const response = await axios.post(`http://localhost:8087/quizzes?email=${encodeURIComponent(email)}`, formData, {
+            const response = await axios.post(`http://localhost:8087/quizzes?email=${email}`, formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data'
                 }

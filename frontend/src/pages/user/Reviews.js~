@@ -106,61 +106,56 @@ const Reviews = ({ email }) => {
   };
 
   const handleSubmitReview = async (e, isEditMode = false) => {
-      e.preventDefault();
-      setImageError('');
-      try {
-        const formData = new FormData();
-        formData.append('movieTitle', newReview.movieTitle);
-        formData.append('rating', newReview.rating);
-        formData.append('text', newReview.text);
-        formData.append('userEmail', email);
-        newReview.images.forEach((image) => formData.append('images', image));
+    e.preventDefault();
+    setImageError('');
+    try {
+      const formData = new FormData();
+      formData.append('movieTitle', newReview.movieTitle);
+      formData.append('rating', newReview.rating);
+      formData.append('text', newReview.text);
+      formData.append('userEmail', email);
+      newReview.images.forEach((image) => formData.append('images', image));
 
-        // Add deletedImageUrls for edit mode if there are images to delete
-        if (isEditMode && currentImagesToDelete.length > 0) {
-          formData.append('deletedImageUrls', JSON.stringify(currentImagesToDelete));
-        }
-
-        let response;
-        if (isEditMode) {
-          console.log('Submitting edit for review ID:', modalState.review.id, 'with deleted images:', currentImagesToDelete);
-          response = await axios.put(
-            `http://localhost:8085/reviews/${modalState.review.id}?email=${email}`,
-            formData,
-            {
-              headers: { 'Content-Type': 'multipart/form-data' },
-            }
-          );
-          setReviews(reviews.map((r) => (r.id === modalState.review.id ? response.data : r)));
-          toast.success('Review updated successfully');
-        } else {
-          console.log('Submitting new review');
-          response = await axios.post(`http://localhost:8085/reviews?email=${email}`, formData, {
+      let response;
+      if (isEditMode) {
+        console.log('Submitting edit for review ID:', modalState.review.id);
+        response = await axios.put(
+          `http://localhost:8085/reviews/${modalState.review.id}?email=${email}`,
+          formData,
+          {
             headers: { 'Content-Type': 'multipart/form-data' },
-          });
-          setReviews([response.data, ...reviews]);
-          toast.success('Review created successfully');
-        }
-
-        setShowForm(false);
-        setModalState(null);
-        setNewReview({ movieTitle: '', rating: 1, text: '', images: [] });
-        setCurrentImagesToDelete([]);
-      } catch (error) {
-        console.error('Error submitting review:', error.response?.data || error.message);
-        if (error.response?.status === 400) {
-          toast.error('Invalid review data');
-        } else if (error.response?.status === 403) {
-          toast.error('You are not authorized to perform this action');
-        } else if (error.response?.status === 404) {
-          toast.error('Review not found');
-        } else if (error.response?.status === 413) {
-          setImageError('One or more files are too large. Each file must be 5MB or smaller.');
-          toast.error('Failed to submit: One or more files are too large.');
-        } else {
-          toast.error(error.response?.data?.message || 'Failed to submit review');
-        }
+          }
+        );
+        setReviews(reviews.map((r) => (r.id === modalState.review.id ? response.data : r)));
+        toast.success('Review updated successfully');
+      } else {
+        console.log('Submitting new review');
+        response = await axios.post(`http://localhost:8085/reviews?email=${email}`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        setReviews([response.data, ...reviews]);
+        toast.success('Review created successfully');
       }
+
+      setShowForm(false);
+      setModalState(null);
+      setNewReview({ movieTitle: '', rating: 1, text: '', images: [] });
+      setCurrentImagesToDelete([]);
+    } catch (error) {
+      console.error('Error submitting review:', error.response?.data || error.message);
+      if (error.response?.status === 400) {
+        toast.error('Invalid review data');
+      } else if (error.response?.status === 403) {
+        toast.error('You are not authorized to perform this action');
+      } else if (error.response?.status === 404) {
+        toast.error('Review not found');
+      } else if (error.response?.status === 413) {
+        setImageError('One or more files are too large. Each file must be 5MB or smaller.');
+        toast.error('Failed to submit: One or more files are too large.');
+      } else {
+        toast.error(error.response?.data?.message || 'Failed to submit review');
+      }
+    }
   };
 
   const handleEditReview = (review) => {

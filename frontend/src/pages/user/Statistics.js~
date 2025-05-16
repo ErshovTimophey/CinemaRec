@@ -5,7 +5,7 @@ import { FaFilm, FaUser, FaGlobe } from 'react-icons/fa';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8'];
 
-const Statistics = ({ email }) => {
+const Statistics = () => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
 

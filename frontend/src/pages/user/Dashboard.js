@@ -99,9 +99,9 @@ const Dashboard = () => {
                 {/* Main Content */}
                 <div className="flex-1 p-8">
                     {activeTab === 'recommendations' && email && <MovieRecommendations email={email} />}
-                    {activeTab === 'statistics' && <Statistics />}
+                    {activeTab === 'statistics' && email && <Statistics email={email} />}
                     {activeTab === 'reviews' && email && <Reviews email={email} />}
-                    {activeTab === 'quizzes' && <Quizzes />}
+                    {activeTab === 'quizzes' && email && <Quizzes email={email} />}
                 </div>
             </div>
         </motion.div>
