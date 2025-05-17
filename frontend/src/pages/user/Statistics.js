@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
-import { FaFilm, FaGlobe, FaVideo, FaSearch, FaTrash, FaStar } from 'react-icons/fa';
+import { FaFilm, FaGlobe, FaVideo, FaSearch, FaTrash, FaStar, FaEye } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 
@@ -630,9 +630,9 @@ const Statistics = ({ email }) => {
                                     ) : (
                                         <button
                                             onClick={() => handleMarkAsWatched(movieDetails.id)}
-                                            className="flex items-center px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+                                            className="flex items-center px-4 py-2 rounded bg-purple-100 text-purple-800 hover:bg-purple-200"
                                         >
-                                            <FaVideo className="mr-1" />
+                                            <FaEye className="mr-1" />
                                             Mark as Watched
                                         </button>
                                     )}
@@ -722,9 +722,9 @@ const MovieCard = ({ movie, onMarkAsWatched, onRemoveFromWatched, onClick }) => 
                                 e.stopPropagation();
                                 onMarkAsWatched(displayMovie.id);
                             }}
-                            className="flex items-center px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
+                            className="flex items-center px-3 py-1 rounded bg-purple-100 text-purple-800 hover:bg-purple-200"
                         >
-                            <FaVideo className="mr-1" />
+                            <FaEye className="mr-1" />
                             Mark as Watched
                         </button>
                     )}

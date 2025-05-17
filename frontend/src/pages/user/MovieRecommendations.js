@@ -426,22 +426,6 @@ const MovieCard = ({ movie, onMarkAsWatched, onClick }) => {
         <p className="text-gray-700 mb-4 line-clamp-3">
           {movie.overview || 'No description available'}
         </p>
-        <div className="flex space-x-2">
-          <button
-            onClick={(e) => {
-              e.stopPropagation(); // Предотвращаем открытие модального окна при клике
-              onMarkAsWatched(movie.movieId);
-            }}
-            className={`flex items-center px-3 py-1 rounded ${
-              movie.watched
-                ? 'bg-green-100 text-green-800'
-                : 'bg-purple-100 text-purple-800 hover:bg-purple-200'
-            }`}
-          >
-            <FaEye className="mr-1" />
-            {movie.watched ? 'Watched' : 'Mark as watched'}
-          </button>
-        </div>
       </div>
     </motion.div>
   );
