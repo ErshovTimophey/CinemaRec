@@ -1,0 +1,185 @@
+package com.example.statisticsservice.service;
+
+import com.example.statisticsservice.dto.MovieDetails;
+import com.example.statisticsservice.dto.StatisticsResponse;
+import com.example.statisticsservice.model.WatchedMovie;
+import com.example.statisticsservice.repository.WatchedMovieRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class StatisticsService {
+
+    private final WatchedMovieRepository watchedMovieRepository;
+    private final TmdbService tmdbService;
+
+    public StatisticsResponse getStatistics(String email) {
+        try {
+            List<WatchedMovie> watchedMovies = watchedMovieRepository.findByEmail(email);
+            StatisticsResponse response = new StatisticsResponse();
+            response.setTotalWatched(watchedMovies.size());
+
+            // Genre distribution
+            Map<String, Integer> genreCounts = new HashMap<>();
+            for (WatchedMovie movie : watchedMovies) {
+                if (movie.getGenres() != null) {
+                    String[] genres = movie.getGenres().split(", ");
+                    for (String genre : genres) {
+                        genreCounts.merge(genre.trim(), 1, Integer::sum);
+                    }
+                }
+            }
+            response.setGenreDistribution(genreCounts.entrySet().stream()
+                    .map(entry -> {
+                        StatisticsResponse.Distribution dist = new StatisticsResponse.Distribution();
+                        dist.setGenre(entry.getKey());
+                        dist.setCount(entry.getValue());
+                        return dist;
+                    })
+                    .sorted(Comparator.comparingInt(StatisticsResponse.Distribution::getCount).reversed())
+                    .limit(10)
+                    .collect(Collectors.toList()));
+
+            // Actor distribution
+            Map<String, Integer> actorCounts = new HashMap<>();
+            for (WatchedMovie movie : watchedMovies) {
+                if (movie.getActors() != null) {
+                    String[] actors = movie.getActors().split(", ");
+                    for (String actor : actors) {
+                        actorCounts.merge(actor.trim(), 1, Integer::sum);
+                    }
+                }
+            }
+            response.setActorDistribution(actorCounts.entrySet().stream()
+                    .map(entry -> {
+                        StatisticsResponse.Distribution dist = new StatisticsResponse.Distribution();
+                        dist.setName(entry.getKey());
+                        dist.setCount(entry.getValue());
+                        return dist;
+                    })
+                    .sorted(Comparator.comparingInt(StatisticsResponse.Distribution::getCount).reversed())
+                    .limit(5)
+                    .collect(Collectors.toList()));
+
+            // Director distribution
+            Map<String, Integer> directorCounts = new HashMap<>();
+            for (WatchedMovie movie : watchedMovies) {
+                if (movie.getDirectors() != null) {
+                    String[] directors = movie.getDirectors().split(", ");
+                    for (String director : directors) {
+                        directorCounts.merge(director.trim(), 1, Integer::sum);
+                    }
+                }
+            }
+            response.setDirectorDistribution(directorCounts.entrySet().stream()
+                    .map(entry -> {
+                        StatisticsResponse.Distribution dist = new StatisticsResponse.Distribution();
+                        dist.setName(entry.getKey());
+                        dist.setCount(entry.getValue());
+                        return dist;
+                    })
+                    .sorted(Comparator.comparingInt(StatisticsResponse.Distribution::getCount).reversed())
+                    .limit(5)
+                    .collect(Collectors.toList()));
+
+            // Country distribution
+            Map<String, Integer> countryCounts = new HashMap<>();
+            for (WatchedMovie movie : watchedMovies) {
+                if (movie.getCountry() != null) {
+                    countryCounts.merge(movie.getCountry().trim(), 1, Integer::sum);
+                }
+            }
+            response.setCountryDistribution(countryCounts.entrySet().stream()
+                    .map(entry -> {
+                        StatisticsResponse.Distribution dist = new StatisticsResponse.Distribution();
+                        dist.setCountry(entry.getKey());
+                        dist.setCount(entry.getValue());
+                        return dist;
+                    })
+                    .sorted(Comparator.comparingInt(StatisticsResponse.Distribution::getCount).reversed())
+                    .limit(5)
+                    .collect(Collectors.toList()));
+
+            // Preferences analysis
+            String topGenre = response.getGenreDistribution().isEmpty() ? "N/A" :
+                    response.getGenreDistribution().get(0).getGenre();
+            String topActor = response.getActorDistribution().isEmpty() ? "N/A" :
+                    response.getActorDistribution().get(0).getName();
+            response.setPreferencesAnalysis(
+                    String.format("You enjoy %s movies and often watch films featuring %s.", topGenre, topActor)
+            );
+
+            log.info("Generated statistics for user: {}, total watched: {}", email, watchedMovies.size());
+            return response;
+
+        } catch (Exception e) {
+            log.error("Error generating statistics for user: {}", email, e);
+            return new StatisticsResponse();
+        }
+    }
+
+    @Transactional
+    public void markMovieAsWatched(String email, Integer movieId) {
+        try {
+            Optional<WatchedMovie> existing = watchedMovieRepository.findByEmailAndMovieId(email, movieId);
+            if (existing.isPresent()) {
+                log.info("Movie {} already marked as watched for user: {}", movieId, email);
+                return;
+            }
+
+            MovieDetails details = tmdbService.getMovieDetails(movieId);
+            if (details.getId() == null) {
+                log.warn("Movie details not found for movieId: {}", movieId);
+                throw new IllegalArgumentException("Movie not found");
+            }
+
+            WatchedMovie movie = new WatchedMovie();
+            movie.setEmail(email);
+            movie.setMovieId(movieId);
+            movie.setTitle(details.getTitle());
+            movie.setPosterPath(tmdbService.getFullPosterUrl(details.getPosterPath()));
+            movie.setRating(details.getVoteAverage());
+            movie.setGenres(details.getGenres().isEmpty() ? null : String.join(", ", details.getGenres()));
+            movie.setOverview(details.getOverview());
+            movie.setActors(details.getActors().isEmpty() ? null : String.join(", ", details.getActors()));
+            movie.setDirectors(details.getDirectors().isEmpty() ? null : String.join(", ", details.getDirectors()));
+            movie.setCountry(details.getCountry());
+
+            watchedMovieRepository.save(movie);
+            log.info("Marked movie {} as watched for user: {}", movieId, email);
+
+        } catch (Exception e) {
+            log.error("Error marking movie {} as watched for user: {}", movieId, email, e);
+            throw new RuntimeException("Failed to mark movie as watched", e);
+        }
+    }
+
+    public List<WatchedMovie> getWatchedMovies(String email) {
+        try {
+            List<WatchedMovie> movies = watchedMovieRepository.findByEmail(email);
+            log.info("Retrieved {} watched movies for user: {}", movies.size(), email);
+            return movies;
+        } catch (Exception e) {
+            log.error("Error retrieving watched movies for user: {}", email, e);
+            return Collections.emptyList();
+        }
+    }
+
+    @Transactional
+    public void removeMovieFromWatched(String email, Integer movieId) {
+        try {
+            watchedMovieRepository.deleteByEmailAndMovieId(email, movieId);
+            log.info("Removed movie {} from watched for user: {}", movieId, email);
+        } catch (Exception e) {
+            log.error("Error removing movie {} from watched for user: {}", movieId, email, e);
+            throw new RuntimeException("Failed to remove movie from watched", e);
+        }
+    }
+}
