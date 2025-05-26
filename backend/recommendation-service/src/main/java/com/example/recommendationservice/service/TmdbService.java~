@@ -50,7 +50,7 @@ public class TmdbService {
                        RedisTemplate<String, String> imageRedisTemplate) {
         this.restTemplate = restTemplate;
         this.redisTemplate = redisTemplate;
-        this.imageRedisTemplate = imageRedisTemplate;
+        this.byteArrayRedisTemplate = byteArrayRedisTemplate;
         headers = new HttpHeaders();
         headers.set("accept", "application/json");
         headers.set("Authorization", "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyZDQ2MmI5MTYxZGM3NDIwMzI0NWVjMDcyOWRmZjM4NyIsIm5iZiI6MTc0NzA2MzAxOC41MzUsInN1YiI6IjY4MjIxMGVhMzJmNzNlMTJlNDczOTNjNyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Xx1dOcNyzFsIMIB3h3hD006NVEoZMFXsF6d7GVlUsTA");

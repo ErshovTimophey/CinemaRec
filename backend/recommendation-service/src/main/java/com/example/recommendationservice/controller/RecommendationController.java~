@@ -4,9 +4,6 @@ import com.example.recommendationservice.model.Recommendation;
 import com.example.recommendationservice.service.RecommendationService;
 import com.example.recommendationservice.service.TmdbService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,8 +14,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class RecommendationController {
     private final RecommendationService recommendationService;
+
     private final TmdbService tmdbService;
-    private final org.springframework.data.redis.core.RedisTemplate<String, Object> redisTemplate;
 
     @GetMapping("/{email}")
     public ResponseEntity<List<Recommendation>> getRecommendations(@PathVariable String email) {
@@ -27,20 +24,23 @@ public class RecommendationController {
     }
 
     @PostMapping("/{email}/watched/{movieId}")
-    public ResponseEntity<Void> markAsWatched(@PathVariable String email, @PathVariable Integer movieId) {
+    public ResponseEntity<Void> markAsWatched(
+            @PathVariable String email,
+            @PathVariable Integer movieId) {
         recommendationService.markMovieAsWatched(email, movieId);
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{email}/refresh")
     public ResponseEntity<Void> refreshRecommendations(@PathVariable String email) {
-        redisTemplate.delete("recommendations:" + email); // Invalidate cache
+        // This would trigger a new preferences event in a real scenario
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/{email}/movies/{movieId}")
     public ResponseEntity<TmdbService.MovieDetails> getMovieDetails(
-            @PathVariable String email, @PathVariable Integer movieId) {
+            @PathVariable String email,
+            @PathVariable Integer movieId) {
         try {
             TmdbService.MovieDetails details = tmdbService.getMovieDetails(movieId);
             if (details == null || details.getId() == null) {
@@ -55,13 +55,30 @@ public class RecommendationController {
     @GetMapping("/{email}/movies/{movieId}/poster")
     public ResponseEntity<byte[]> getMoviePoster(@PathVariable String email, @PathVariable Integer movieId) {
         try {
-            byte[] image = tmdbService.getMoviePoster(movieId);
-            if (image == null) {
+            String cacheKey = "poster:" + movieId;
+            byte[] cachedImage = (byte[]) redisTemplate.opsForValue().get(cacheKey);
+            if (cachedImage != null) {
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.IMAGE_JPEG);
+                return new ResponseEntity<>(cachedImage, headers, HttpStatus.OK);
+            }
+
+            TmdbService.MovieDetails details = tmdbService.getMovieDetails(movieId);
+            if (details == null || details.getPosterPath() == null) {
                 return ResponseEntity.notFound().build();
             }
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.IMAGE_JPEG);
-            return new ResponseEntity<>(image, headers, HttpStatus.OK);
+
+            String posterUrl = tmdbService.getFullPosterUrl(details.getPosterPath());
+            ResponseEntity<byte[]> response = restTemplate.exchange(
+                    posterUrl, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), byte[].class);
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                redisTemplate.opsForValue().set(cacheKey, response.getBody(), 1, java.util.concurrent.TimeUnit.HOURS);
+                HttpHeaders headers = new HttpHeaders();
+                headers.setContentType(MediaType.IMAGE_JPEG);
+                return new ResponseEntity<>(response.getBody(), headers, HttpStatus.OK);
+            }
+            return ResponseEntity.notFound().build();
         } catch (Exception e) {
             return ResponseEntity.status(500).build();
         }

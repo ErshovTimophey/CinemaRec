@@ -1,6 +1,6 @@
 package com.example.recommendationservice.config;
 
-import com.example.recommendationservice.dto.PreferencesEvent;
+import com.example.dto.PreferencesEvent;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -28,6 +28,8 @@ public class KafkaConfig {
         props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
         props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
         props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+        props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 100); // Process more records per poll
+        props.put(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG, 500);
         return new DefaultKafkaConsumerFactory<>(props);
     }
 

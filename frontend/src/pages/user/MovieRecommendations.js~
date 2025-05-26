@@ -106,7 +106,7 @@ const MovieRecommendations = ({ email }) => {
       await axios.post(
         `http://localhost:8082/users/${email}/refresh-recommendations`
       );
-      await new Promise(resolve => setTimeout(resolve, 1000));
+
       await fetchRecommendations(); // No artificial delay
       toast.success('Recommendations refreshed!');
     } catch (error) {
