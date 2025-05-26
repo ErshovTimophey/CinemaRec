@@ -1,6 +1,7 @@
 package com.example.userservice.controller;
 
 import com.example.userservice.service.TmdbService;
+import org.springframework.http.*;
 import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -49,5 +50,27 @@ public class TmdbController {
     @GetMapping("/search/directors")
     public ResponseEntity<List<Map<String, Object>>> searchDirectors(@RequestParam String query) {
         return ResponseEntity.ok(tmdbService.searchPersons(query, "Directing"));
+    }
+
+    @GetMapping("/movies/{movieId}/poster")
+    public ResponseEntity<byte[]> getMoviePoster(@PathVariable Long movieId) {
+        byte[] poster = tmdbService.getMoviePoster(movieId);
+        if (poster == null || poster.length == 0) {
+            return ResponseEntity.notFound().build();
+        }
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.IMAGE_JPEG);
+        return new ResponseEntity<>(poster, headers, HttpStatus.OK);
+    }
+
+    @GetMapping("/persons/{personId}/profile")
+    public ResponseEntity<byte[]> getPersonProfile(@PathVariable Long personId) {
+        byte[] profile = tmdbService.getPersonProfile(personId);
+        if (profile == null || profile.length == 0) {
+            return ResponseEntity.notFound().build();
+        }
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.IMAGE_JPEG);
+        return new ResponseEntity<>(profile, headers, HttpStatus.OK);
     }
 }

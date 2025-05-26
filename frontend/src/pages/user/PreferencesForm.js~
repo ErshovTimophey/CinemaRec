@@ -625,7 +625,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
                     <img
                       src={
                         director.profile_path
-                          ? `http://localhost:8082/tmdb/persons/${director.id}/profile`
+                          ? `http://localhost:8082/tmdb/persons/${director.id}/profile``
                           : 'https://via.placeholder.com/150x150?text=No+Image'
                       }
                       alt={director.name}

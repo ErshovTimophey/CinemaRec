@@ -10,6 +10,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service
@@ -37,15 +38,36 @@ public class TmdbService {
         headers.set("accept", "application/json");
         headers.set("Authorization", "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyZDQ2MmI5MTYxZGM3NDIwMzI0NWVjMDcyOWRmZjM4NyIsIm5iZiI6MTc0NzA2MzAxOC41MzUsInN1YiI6IjY4MjIxMGVhMzJmNzNlMTJlNDczOTNjNyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Xx1dOcNyzFsIMIB3h3hD006NVEoZMFXsF6d7GVlUsTA");
     }
+    public byte[] getMoviePoster(Long movieId) {
+        try {
+            MovieDetails details = getMovieDetails(movieId.intValue());
+            if (details == null || details.getPosterPath() == null) {
+                log.warn("No poster path found for movieId: {}", movieId);
+                return null;
+            }
+
+            String posterUrl = getFullPosterUrl(details.getPosterPath());
+            ResponseEntity<byte[]> posterResponse = restTemplate.exchange(
+                    posterUrl, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), byte[].class);
+
+            if (posterResponse.getStatusCode() == HttpStatus.OK && posterResponse.getBody() != null) {
+                log.debug("Successfully fetched poster for movieId: {}", movieId);
+                return posterResponse.getBody();
+            }
+            log.warn("Failed to fetch poster for movieId: {}, HTTP status: {}", movieId, posterResponse.getStatusCode());
+            return null;
+        } catch (Exception e) {
+            log.error("Error fetching poster for movieId: {}", movieId, e);
+            return null;
+        }
+    }
+
 
     public List<TmdbMovie> searchMovies(String query, int page) {
         try {
             String endpoint = query.isEmpty() ? "/movie/popular" : "/search/movie";
             UriComponentsBuilder builder = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
                     .path(endpoint)
-                    .queryParam("vote_count.gte", MIN_VOTE_COUNT)
-                    .queryParam("popularity.gte", MIN_POPULARITY)
-                    .queryParam("without_countries", EXCLUDE_COUNTRY)
                     .queryParam("page", page);
 
             if (!query.isEmpty()) {
@@ -62,6 +84,15 @@ public class TmdbService {
             if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
                 List<Map<String, Object>> results = (List<Map<String, Object>>) response.getBody().get("results");
                 return results.stream()
+                        .filter(movie -> {
+                            Object voteAverage = movie.get("vote_average");
+                            Object voteCount = movie.get("vote_count");
+                            Object popularity = movie.get("popularity");
+                            boolean hasHighRating = voteAverage instanceof Number && ((Number) voteAverage).doubleValue() > 7.0;
+                            boolean hasEnoughVotes = voteCount instanceof Number && ((Number) voteCount).intValue() >= MIN_VOTE_COUNT;
+                            boolean hasEnoughPopularity = popularity instanceof Number && ((Number) popularity).doubleValue() >= MIN_POPULARITY;
+                            return hasHighRating && hasEnoughVotes && hasEnoughPopularity;
+                        })
                         .map(this::mapToTmdbMovie)
                         .collect(Collectors.toList());
             }

@@ -3,10 +3,7 @@ package com.example.userservice.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
@@ -116,8 +113,14 @@ public class TmdbService {
         }
 
         List<Map<String, Object>> movies = (List<Map<String, Object>>) response.getBody().get("results");
-        redisTemplate.opsForValue().set(cacheKey, movies, CACHE_TTL_HOURS, TimeUnit.HOURS);
-        return movies;
+        List<Map<String, Object>> filteredMovies = movies.stream()
+                .filter(movie -> {
+                    Object voteAverage = movie.get("vote_average");
+                    return voteAverage instanceof Number && ((Number) voteAverage).doubleValue() > 7.0;
+                })
+                .collect(Collectors.toList());
+        redisTemplate.opsForValue().set(cacheKey, filteredMovies, CACHE_TTL_HOURS, TimeUnit.HOURS);
+        return filteredMovies;
     }
 
     // Search movies
@@ -144,6 +147,82 @@ public class TmdbService {
         List<Map<String, Object>> results = (List<Map<String, Object>>) response.getBody().get("results");
         redisTemplate.opsForValue().set(cacheKey, results, 1, TimeUnit.HOURS); // Short TTL for search
         return results;
+    }
+
+    public byte[] getMoviePoster(Long movieId) {
+        String cacheKey = "poster:" + movieId;
+        String cachedBase64 = (String) redisTemplate.opsForValue().get(cacheKey);
+        if (cachedBase64 != null && !cachedBase64.isEmpty()) {
+            try {
+                return Base64.getDecoder().decode(cachedBase64);
+            } catch (IllegalArgumentException e) {
+                redisTemplate.delete(cacheKey); // Remove invalid cache entry
+            }
+        }
+
+        String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
+                .path("/movie/{id}")
+                .queryParam("api_key", tmdbApiKey)
+                .buildAndExpand(movieId)
+                .toUriString();
+
+        ResponseEntity<Map> response = restTemplate.exchange(
+                url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+
+        if (response.getBody() == null || response.getBody().get("poster_path") == null) {
+            return null;
+        }
+
+        String posterPath = (String) response.getBody().get("poster_path");
+        String posterUrl = "https://image.tmdb.org/t/p/w500" + posterPath;
+
+        ResponseEntity<byte[]> posterResponse = restTemplate.exchange(
+                posterUrl, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), byte[].class);
+
+        if (posterResponse.getStatusCode() == HttpStatus.OK && posterResponse.getBody() != null) {
+            String base64Image = Base64.getEncoder().encodeToString(posterResponse.getBody());
+            redisTemplate.opsForValue().set(cacheKey, base64Image, CACHE_TTL_HOURS, TimeUnit.HOURS);
+            return posterResponse.getBody();
+        }
+        return null;
+    }
+
+    public byte[] getPersonProfile(Long personId) {
+        String cacheKey = "profile:" + personId;
+        String cachedBase64 = (String) redisTemplate.opsForValue().get(cacheKey);
+        if (cachedBase64 != null && !cachedBase64.isEmpty()) {
+            try {
+                return Base64.getDecoder().decode(cachedBase64);
+            } catch (IllegalArgumentException e) {
+                redisTemplate.delete(cacheKey); // Remove invalid cache entry
+            }
+        }
+
+        String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
+                .path("/person/{id}")
+                .queryParam("api_key", tmdbApiKey)
+                .buildAndExpand(personId)
+                .toUriString();
+
+        ResponseEntity<Map> response = restTemplate.exchange(
+                url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+
+        if (response.getBody() == null || response.getBody().get("profile_path") == null) {
+            return null;
+        }
+
+        String profilePath = (String) response.getBody().get("profile_path");
+        String profileUrl = "https://image.tmdb.org/t/p/w200" + profilePath;
+
+        ResponseEntity<byte[]> profileResponse = restTemplate.exchange(
+                profileUrl, HttpMethod.GET, new HttpEntity<>(new HttpHeaders()), byte[].class);
+
+        if (profileResponse.getStatusCode() == HttpStatus.OK && profileResponse.getBody() != null) {
+            String base64Image = Base64.getEncoder().encodeToString(profileResponse.getBody());
+            redisTemplate.opsForValue().set(cacheKey, base64Image, CACHE_TTL_HOURS, TimeUnit.HOURS);
+            return profileResponse.getBody();
+        }
+        return null;
     }
 
     // Search persons (actors/directors)

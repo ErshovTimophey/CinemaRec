@@ -684,7 +684,7 @@ const MovieCard = ({ movie, onMarkAsWatched, onRemoveFromWatched, onClick }) => 
             <img
                 src={
                     displayMovie.posterPath
-                        ? `http://localhost:8088/tmdb/movies/${displayMovie.id}/poster`
+                        ? `http://localhost:8088/tmdb/movies/${movieDetails.id}/poster`
                         : 'https://via.placeholder.com/500x750?text=No+Image'
                 }
                 alt={displayMovie.title}
