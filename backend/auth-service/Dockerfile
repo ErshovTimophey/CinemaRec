@@ -6,6 +6,6 @@ WORKDIR /app
 COPY target/authservice.jar ./app.jar
 
 # Порт, на котором будет запущено приложение
-EXPOSE 8080
+EXPOSE 8081
 
 CMD ["java", "-jar", "app.jar"]

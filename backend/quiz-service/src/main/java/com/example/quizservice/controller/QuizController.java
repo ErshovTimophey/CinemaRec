@@ -6,11 +6,16 @@ import com.example.quizservice.service.QuizService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 
 import jakarta.validation.Valid;
+import org.springframework.web.client.RestTemplate;
+
+import java.io.InputStream;
+import java.net.URI;
+import java.net.URL;
 import java.util.List;
 
 @RestController
@@ -66,5 +71,20 @@ public class QuizController {
             @RequestParam("email") String email) {
         logger.info("Fetching quiz results for user: {}", email);
         return ResponseEntity.ok(quizService.getUserResults(email));
+    }
+
+    @GetMapping("/proxy")
+    public ResponseEntity<InputStreamResource> proxyImage(@RequestParam String url) {
+        try {
+            logger.info("Proxying image URL: {}", url);
+            URL imageUrl = new URL(url);
+            InputStream inputStream = imageUrl.openStream();
+
+            return ResponseEntity.ok()
+                    .contentType(MediaType.IMAGE_PNG) // или определить тип из URL
+                    .body(new InputStreamResource(inputStream));
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
     }
 }

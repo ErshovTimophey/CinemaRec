@@ -12,7 +12,7 @@ import java.util.Map;
 public class CustomOAuth2User implements OAuth2User {
 
     private final User user;
-    private final Map<String, Object> attributes;
+    private final Map<String, Object>  attributes;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public CustomOAuth2User(User user, Map<String, Object> attributes) {

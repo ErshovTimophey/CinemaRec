@@ -44,7 +44,7 @@ public class UserService {
     public void refreshRecommendations(String email) {
         try {
             // Вызываем эндпоинт PreferencesController для получения предпочтений
-            String preferencesUrl = "http://localhost:8082/users/" + email + "/preferences";
+            String preferencesUrl = "http://user-service:8082/users/" + email + "/preferences";
             ResponseEntity<PreferencesResponseDTO> response = restTemplate.getForEntity(preferencesUrl, PreferencesResponseDTO.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
