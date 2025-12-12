@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
-import { FaFilm, FaGlobe, FaVideo, FaSearch, FaTrash, FaStar, FaEye } from 'react-icons/fa';
+import { FaFilm, FaGlobe, FaVideo, FaSearch, FaTrash, FaStar, FaEye, FaPlay } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 
@@ -34,7 +35,6 @@ const Statistics = ({ email }) => {
                 setLoadingStats(false);
             } catch (error) {
                 console.error('Error fetching statistics:', error);
-                toast.error('Failed to load statistics');
                 setLoadingStats(false);
             }
         };
@@ -71,7 +71,6 @@ const Statistics = ({ email }) => {
                 setLoadingWatched(false);
             } catch (error) {
                 console.error('Error fetching watched movies:', error);
-                toast.error('Failed to load watched movies');
                 setLoadingWatched(false);
             }
         };
@@ -105,7 +104,6 @@ const Statistics = ({ email }) => {
                 setLoadingMovies(false);
             } catch (error) {
                 console.error('Error fetching movies:', error);
-                toast.error('Failed to load movies');
                 setLoadingMovies(false);
             }
         };
@@ -172,7 +170,6 @@ const Statistics = ({ email }) => {
                     setDetailsError(error.message || 'Failed to load movie details');
                     setMovieDetails(null);
                     setLoadingDetails(false);
-                    toast.error('Failed to load movie details');
                 }
             };
             fetchMovieDetails();
@@ -210,10 +207,8 @@ const Statistics = ({ email }) => {
             }
             const response = await axios.get(`http://localhost:8088/statistics?email=${encodeURIComponent(email)}`);
             setStats(response.data);
-            toast.success('Marked as watched!');
         } catch (error) {
             console.error('Error marking as watched:', error);
-            toast.error('Failed to mark as watched');
         }
     };
 
@@ -233,10 +228,8 @@ const Statistics = ({ email }) => {
             }
             const response = await axios.get(`http://localhost:8088/statistics?email=${encodeURIComponent(email)}`);
             setStats(response.data);
-            toast.success('Removed from watched!');
         } catch (error) {
             console.error('Error removing from watched:', error);
-            toast.error('Failed to remove from watched');
         }
     };
 
@@ -468,11 +461,12 @@ const Statistics = ({ email }) => {
                 <div>
                     <h3 className="text-xl font-semibold mb-4 text-gray-800">Your Watched Movies</h3>
                     {watchedMovies.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 items-stretch [&>*]:min-w-0">
                             {watchedMovies.map(movie => (
                                 <MovieCard
                                     key={movie.movieId}
                                     movie={movie}
+                                    email={email}
                                     onMarkAsWatched={handleMarkAsWatched}
                                     onRemoveFromWatched={handleRemoveFromWatched}
                                     onClick={() => setSelectedMovie(movie)}
@@ -515,11 +509,12 @@ const Statistics = ({ email }) => {
                         </div>
                     ) : movies.length > 0 ? (
                         <div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                            <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 items-stretch [&>*]:min-w-0">
                                 {movies.map(movie => (
                                     <MovieCard
                                         key={movie.id}
                                         movie={movie}
+                                        email={email}
                                         onMarkAsWatched={handleMarkAsWatched}
                                         onRemoveFromWatched={handleRemoveFromWatched}
                                         onClick={() => setSelectedMovie(movie)}
@@ -549,30 +544,30 @@ const Statistics = ({ email }) => {
 
             {/* Movie Details Modal */}
             {selectedMovie && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 sm:p-6 z-50 overflow-y-auto">
                     <motion.div
                         initial={{ scale: 0.9, opacity: 0 }}
                         animate={{ scale: 1, opacity: 1 }}
                         exit={{ scale: 0.9, opacity: 0 }}
-                        className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+                        className="bg-white rounded-lg p-4 sm:p-6 max-w-2xl w-full max-h-[70vh] sm:max-h-[85vh] overflow-y-auto shadow-xl"
                     >
                         {loadingDetails ? (
-                            <div className="flex justify-center items-center h-64">
-                                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-purple-500"></div>
+                            <div className="flex justify-center items-center min-h-[12rem] sm:h-64">
+                                <div className="animate-spin rounded-full h-10 w-10 sm:h-12 sm:w-12 border-t-2 border-b-2 border-purple-500"></div>
                             </div>
                         ) : detailsError ? (
                             <div className="text-center">
-                                <p className="text-red-600 mb-4">{detailsError}</p>
+                                <p className="text-red-600 mb-4 text-sm sm:text-base">{detailsError}</p>
                                 <button
                                     onClick={closeModal}
-                                    className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
+                                    className="px-3 py-2 sm:px-4 sm:py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition text-sm sm:text-base"
                                 >
                                     Close
                                 </button>
                             </div>
                         ) : movieDetails ? (
                             <div>
-                                <div className="flex flex-col sm:flex-row gap-6">
+                                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                                     <img
                                         src={
                                             movieDetails.posterPath
@@ -580,49 +575,49 @@ const Statistics = ({ email }) => {
                                                 : 'https://via.placeholder.com/300x450?text=No+Image'
                                         }
                                         alt={movieDetails.title}
-                                        className="w-full sm:w-1/3 h-auto rounded-lg object-cover"
+                                        className="w-full sm:w-1/3 max-w-xs mx-auto sm:mx-0 h-auto rounded-lg object-cover shrink-0"
                                     />
-                                    <div className="flex-1">
-                                        <h2 className="text-2xl font-bold mb-2">{movieDetails.title}</h2>
-                                        <p className="text-gray-600 mb-2">
+                                    <div className="flex-1 min-w-0">
+                                        <h2 className="text-xl sm:text-2xl font-bold mb-2 break-words">{movieDetails.title}</h2>
+                                        <p className="text-gray-600 mb-1.5 sm:mb-2 text-sm sm:text-base">
                                             <span className="font-semibold">Release Date:</span>{' '}
                                             {movieDetails.releaseDate || 'N/A'}
                                         </p>
-                                        <p className="text-gray-600 mb-2">
+                                        <p className="text-gray-600 mb-1.5 sm:mb-2 text-sm sm:text-base">
                                             <span className="font-semibold">Runtime:</span>{' '}
                                             {movieDetails.runtime ? `${movieDetails.runtime} minutes` : 'N/A'}
                                         </p>
-                                        <p className="text-gray-600 mb-2">
+                                        <p className="text-gray-600 mb-1.5 sm:mb-2 text-sm sm:text-base">
                                             <span className="font-semibold">Rating:</span>{' '}
                                             {movieDetails.voteAverage ? movieDetails.voteAverage.toFixed(1) : 'N/A'} / 10
                                         </p>
-                                        <p className="text-gray-600 mb-2">
+                                        <p className="text-gray-600 mb-1.5 sm:mb-2 text-sm sm:text-base">
                                             <span className="font-semibold">Genres:</span>{' '}
                                             {movieDetails.genres?.length > 0 ? movieDetails.genres.join(', ') : 'N/A'}
                                         </p>
-                                        <p className="text-gray-600 mb-2">
+                                        <p className="text-gray-600 mb-1.5 sm:mb-2 text-sm sm:text-base">
                                             <span className="font-semibold">Actors:</span>{' '}
                                             {movieDetails.actors?.length > 0 ? movieDetails.actors.join(', ') : 'N/A'}
                                         </p>
-                                        <p className="text-gray-600 mb-2">
+                                        <p className="text-gray-600 mb-1.5 sm:mb-2 text-sm sm:text-base">
                                             <span className="font-semibold">Directors:</span>{' '}
                                             {movieDetails.directors?.length > 0 ? movieDetails.directors.join(', ') : 'N/A'}
                                         </p>
-                                        <p className="text-gray-600 mb-2">
+                                        <p className="text-gray-600 mb-1.5 sm:mb-2 text-sm sm:text-base">
                                             <span className="font-semibold">Country:</span>{' '}
                                             {movieDetails.country || 'N/A'}
                                         </p>
-                                        <p className="text-gray-700 mb-4">
+                                        <p className="text-gray-700 mb-4 text-sm sm:text-base">
                                             <span className="font-semibold">Overview:</span>{' '}
                                             {movieDetails.overview || 'No description available'}
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex justify-end mt-4 space-x-2">
+                                <div className="flex flex-wrap justify-end gap-2 mt-4">
                                     {movieDetails.watched ? (
                                         <button
                                             onClick={() => handleRemoveFromWatched(movieDetails.id)}
-                                            className="flex items-center px-4 py-2 rounded bg-red-600 text-white hover:bg-red-700"
+                                            className="flex items-center px-3 py-2 sm:px-4 sm:py-2 rounded text-sm sm:text-base bg-red-600 text-white hover:bg-red-700"
                                         >
                                             <FaTrash className="mr-1" />
                                             Remove from Watched
@@ -630,7 +625,7 @@ const Statistics = ({ email }) => {
                                     ) : (
                                         <button
                                             onClick={() => handleMarkAsWatched(movieDetails.id)}
-                                            className="flex items-center px-4 py-2 rounded bg-purple-100 text-purple-800 hover:bg-purple-200"
+                                            className="flex items-center px-3 py-2 sm:px-4 sm:py-2 rounded text-sm sm:text-base bg-purple-100 text-purple-800 hover:bg-purple-200"
                                         >
                                             <FaEye className="mr-1" />
                                             Mark as Watched
@@ -638,7 +633,7 @@ const Statistics = ({ email }) => {
                                     )}
                                     <button
                                         onClick={closeModal}
-                                        className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
+                                        className="px-3 py-2 sm:px-4 sm:py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition text-sm sm:text-base"
                                     >
                                         Close
                                     </button>
@@ -646,10 +641,10 @@ const Statistics = ({ email }) => {
                             </div>
                         ) : (
                             <div className="text-center">
-                                <p className="text-red-600 mb-4">No movie details available.</p>
+                                <p className="text-red-600 mb-4 text-sm sm:text-base">No movie details available.</p>
                                 <button
                                     onClick={closeModal}
-                                    className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition"
+                                    className="px-3 py-2 sm:px-4 sm:py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition text-sm sm:text-base"
                                 >
                                     Close
                                 </button>
@@ -662,7 +657,9 @@ const Statistics = ({ email }) => {
     );
 };
 
-const MovieCard = ({ movie, onMarkAsWatched, onRemoveFromWatched, onClick }) => {
+const MovieCard = ({ movie, email, onMarkAsWatched, onRemoveFromWatched, onClick }) => {
+    const navigate = useNavigate();
+    
     const displayMovie = {
         id: movie.id || movie.movieId,
         title: movie.title || movie.movieTitle || 'Unknown Title',
@@ -673,45 +670,62 @@ const MovieCard = ({ movie, onMarkAsWatched, onRemoveFromWatched, onClick }) => 
         watched: movie.watched || false
     };
 
+    const handleWatch = (e) => {
+        e.stopPropagation();
+        navigate(`/watch/${displayMovie.id}?email=${encodeURIComponent(email)}`);
+    };
+
     console.log('MovieCard displayMovie:', displayMovie);
+
+    const posterSrc = displayMovie.posterPath
+        ? `http://localhost:8088/tmdb/movies/${displayMovie.id}/poster`
+        : 'https://via.placeholder.com/500x750?text=No+Image';
 
     return (
         <motion.div
             whileHover={{ scale: 1.03 }}
-            className="bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer"
+            className="bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer flex flex-col w-full min-w-0"
             onClick={onClick}
         >
-            <img
-                src={
-                    displayMovie.posterPath
-                        ? `http://localhost:8088/tmdb/movies/${displayMovie.id}/poster`
-                        : 'https://via.placeholder.com/500x750?text=No+Image'
-                }
-                alt={displayMovie.title}
-                className="w-full h-96 object-cover"
-            />
-            <div className="p-4">
-                <div className="flex justify-between items-start mb-2">
-                    <h3 className="text-lg font-bold">{displayMovie.title}</h3>
-                    <span className="flex items-center text-yellow-500">
+            <div className="relative w-full aspect-[2/3] flex-shrink-0 overflow-hidden bg-gray-200">
+                <img
+                    src={posterSrc}
+                    alt={displayMovie.title}
+                    className="w-full h-full object-cover object-center"
+                    onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/500x750?text=No+Image'; }}
+                />
+                <div className="absolute inset-x-0 bottom-2 flex justify-center z-10">
+                    <button
+                        onClick={handleWatch}
+                        className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg flex items-center transition shadow-lg text-xs sm:text-sm"
+                    >
+                        <FaPlay className="mr-1.5 sm:mr-2 shrink-0" />
+                        Watch
+                    </button>
+                </div>
+            </div>
+            <div className="flex-shrink-0 min-h-[5.5rem] overflow-hidden p-2 sm:p-3 flex flex-col min-w-0 border-t border-gray-100">
+                <div className="flex justify-between items-center gap-2 min-w-0 mb-0.5">
+                    <h3 className="text-xs sm:text-sm font-bold truncate min-w-0" title={displayMovie.title}>{displayMovie.title}</h3>
+                    <span className="flex items-center text-yellow-500 shrink-0 text-xs">
                         <FaStar className="mr-1" />
                         {displayMovie.voteAverage ? displayMovie.voteAverage.toFixed(1) : 'N/A'}
                     </span>
                 </div>
-                <p className="text-gray-600 text-sm mb-4">
+                <p className="text-gray-600 text-xs truncate min-w-0" title={displayMovie.genreNames.length > 0 ? displayMovie.genreNames.join(', ') : 'No genres'}>
                     {displayMovie.genreNames.length > 0 ? displayMovie.genreNames.join(', ') : 'No genres'}
                 </p>
-                <p className="text-gray-700 mb-4 line-clamp-3">
+                <p className="text-gray-700 text-xs line-clamp-2 min-w-0 mt-0.5 leading-tight overflow-hidden" title={displayMovie.overview}>
                     {displayMovie.overview}
                 </p>
-                <div className="flex space-x-2">
+                <div className="flex flex-wrap gap-1 sm:gap-2 mt-1 flex-shrink-0">
                     {displayMovie.watched ? (
                         <button
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onRemoveFromWatched(displayMovie.id);
                             }}
-                            className="flex items-center px-3 py-1 rounded bg-red-600 text-white hover:bg-red-700"
+                            className="flex items-center px-2 py-1 rounded text-xs bg-red-600 text-white hover:bg-red-700"
                         >
                             <FaTrash className="mr-1" />
                             Remove from Watched
@@ -722,7 +736,7 @@ const MovieCard = ({ movie, onMarkAsWatched, onRemoveFromWatched, onClick }) => 
                                 e.stopPropagation();
                                 onMarkAsWatched(displayMovie.id);
                             }}
-                            className="flex items-center px-3 py-1 rounded bg-purple-100 text-purple-800 hover:bg-purple-200"
+                            className="flex items-center px-2 py-1 rounded text-xs bg-purple-100 text-purple-800 hover:bg-purple-200"
                         >
                             <FaEye className="mr-1" />
                             Mark as Watched

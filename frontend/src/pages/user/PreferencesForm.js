@@ -106,7 +106,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
         const genresRes = await axios.get('http://localhost:8082/tmdb/genres');
 
         // Fetch initial actors, directors, movies
-        const maxTmdbPages = 10;
+        const maxTmdbPages = 12;
         let allActors = [];
         let allDirectors = [];
         let allMovies = [];
@@ -160,7 +160,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
           setSelectedDirectorObjects([]);
         }
       } catch (error) {
-        toast.error('Failed to load initial data');
         console.error(error);
       } finally {
         setIsLoading(false);
@@ -181,7 +180,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
       setMovieSearchResults(response.data);
       setShowMovieSearchResults(true);
     } catch (error) {
-      toast.error('Failed to search movies');
     }
   };
 
@@ -196,7 +194,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
       setActorSearchResults(response.data);
       setShowActorSearchResults(true);
     } catch (error) {
-      toast.error('Failed to search actors');
     }
   };
 
@@ -211,7 +208,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
       setDirectorSearchResults(response.data);
       setShowDirectorSearchResults(true);
     } catch (error) {
-      toast.error('Failed to search directors');
     }
   };
 
@@ -222,7 +218,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
       setActors(response.data);
       setCurrentActorPage(page);
     } catch (error) {
-      toast.error('Failed to load actors');
       console.error(error);
     }
   };
@@ -234,7 +229,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
       setDirectors(response.data);
       setCurrentDirectorPage(page);
     } catch (error) {
-      toast.error('Failed to load directors');
       console.error(error);
     }
   };
@@ -246,7 +240,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
       setMovies(response.data);
       setCurrentMoviePage(page);
     } catch (error) {
-      toast.error('Failed to load movies');
       console.error(error);
     }
   };
@@ -311,7 +304,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
         preferences
       );
       console.log("Save preferences response:", response.data);
-      toast.success('Preferences updated successfully!');
       if (onPreferencesUpdated) {
         console.log("Triggering onPreferencesUpdated callback");
         await onPreferencesUpdated();
@@ -321,7 +313,6 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
       await fetchRecommendations();
     } catch (error) {
       console.error('Error saving preferences:', error);
-      toast.error('Failed to update preferences');
     }
   };
 
@@ -385,7 +376,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
       {activeTab === 'genres' && (
         <div className="mb-6">
           <label className="block text-lg font-semibold mb-2 flex items-center">
-            <FaFilm className="mr-2" /> Favorite Genres (Select at least 3)
+            <FaFilm className="mr-2" /> Favorite Genres
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
             {genres.map(genre => (
@@ -413,7 +404,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
       {activeTab === 'actors' && (
         <div className="mb-6">
           <label className="block text-lg font-semibold mb-2 flex items-center">
-            <FaUser className="mr-2" /> Favorite Actors (Select up to 5)
+            <FaUser className="mr-2" /> Favorite Actors
           </label>
           <div className="flex flex-col sm:flex-row gap-2 mb-4">
             <input
@@ -528,7 +519,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
       {activeTab === 'directors' && (
         <div className="mb-6">
           <label className="block text-lg font-semibold mb-2 flex items-center">
-            <FaUserTie className="mr-2" /> Favorite Directors (Select up to 5)
+            <FaUserTie className="mr-2" /> Favorite Directors
           </label>
           <div className="flex flex-col sm:flex-row gap-2 mb-4">
             <input
@@ -643,7 +634,7 @@ const PreferencesForm = ({ email, onPreferencesUpdated, fetchRecommendations }) 
       {activeTab === 'movies' && (
         <div className="mb-6">
           <label className="block text-lg font-semibold mb-2 flex items-center">
-            <FaFilm className="mr-2" /> Favorite Movies (Select at least 3)
+            <FaFilm className="mr-2" /> Favorite Movies
           </label>
           <div className="flex flex-col sm:flex-row gap-2 mb-4">
             <input

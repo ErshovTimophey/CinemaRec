@@ -1,10 +1,13 @@
 package com.example.userservice.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.ResourceAccessException;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -14,6 +17,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TmdbService {
 
     private final RestTemplate restTemplate;
@@ -33,7 +37,10 @@ public class TmdbService {
     private void initHeaders() {
         headers = new HttpHeaders();
         headers.set("accept", "application/json");
-        headers.set("Authorization", "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyZDQ2MmI5MTYxZGM3NDIwMzI0NWVjMDcyOWRmZjM4NyIsIm5iZiI6MTc0NzA2MzAxOC41MzUsInN1YiI6IjY4MjIxMGVhMzJmNzNlMTJlNDczOTNjNyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Xx1dOcNyzFsIMIB3h3hD006NVEoZMFXsF6d7GVlUsTA");
+        // Use Bearer token from config (remove "Bearer " prefix if present)
+        String token = tmdbApiKey.startsWith("Bearer ") ? tmdbApiKey.substring(7) : tmdbApiKey;
+        headers.set("Authorization", "Bearer " + token);
+        log.info("TMDB API headers initialized. Base URL: {}", tmdbBaseUrl);
     }
 
     // Fetch genres with caching
@@ -41,24 +48,50 @@ public class TmdbService {
         String cacheKey = "tmdb:genres";
         List<Map<String, Object>> cachedGenres = (List<Map<String, Object>>) redisTemplate.opsForValue().get(cacheKey);
         if (cachedGenres != null) {
+            log.debug("Returning cached genres");
             return cachedGenres;
         }
 
         String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
                 .path("/genre/movie/list")
-                .queryParam("api_key", tmdbApiKey)
                 .toUriString();
 
-        ResponseEntity<Map> response = restTemplate.exchange(
-                url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+        log.info("Fetching genres from TMDB API: {}", url);
+        
+        try {
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    url, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
 
-        if (response.getBody() == null) {
+            if (response.getStatusCode() != HttpStatus.OK) {
+                log.error("TMDB API returned non-OK status: {} for URL: {}", response.getStatusCode(), url);
+                return Collections.emptyList();
+            }
+
+            if (response.getBody() == null) {
+                log.warn("TMDB API returned null body for genres");
+                return Collections.emptyList();
+            }
+
+            List<Map<String, Object>> genres = (List<Map<String, Object>>) response.getBody().get("genres");
+            if (genres != null && !genres.isEmpty()) {
+                redisTemplate.opsForValue().set(cacheKey, genres, CACHE_TTL_HOURS, TimeUnit.HOURS);
+                log.info("Successfully fetched {} genres from TMDB API", genres.size());
+                return genres;
+            } else {
+                log.warn("TMDB API returned empty genres list");
+                return Collections.emptyList();
+            }
+        } catch (ResourceAccessException e) {
+            log.error("Network error fetching genres from TMDB API: {}. URL: {}", e.getMessage(), url, e);
+            // Return cached data if available, even if expired
+            return Collections.emptyList();
+        } catch (RestClientException e) {
+            log.error("REST client error fetching genres from TMDB API: {}. URL: {}", e.getMessage(), url, e);
+            return Collections.emptyList();
+        } catch (Exception e) {
+            log.error("Unexpected error fetching genres from TMDB API: {}. URL: {}", e.getMessage(), url, e);
             return Collections.emptyList();
         }
-
-        List<Map<String, Object>> genres = (List<Map<String, Object>>) response.getBody().get("genres");
-        redisTemplate.opsForValue().set(cacheKey, genres, CACHE_TTL_HOURS, TimeUnit.HOURS);
-        return genres;
     }
 
     // Fetch popular persons (actors/directors) with caching
@@ -71,7 +104,6 @@ public class TmdbService {
 
         String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
                 .path("/person/popular")
-                .queryParam("api_key", tmdbApiKey)
                 .queryParam("page", page)
                 .toUriString();
 
@@ -101,7 +133,6 @@ public class TmdbService {
 
         String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
                 .path("/movie/popular")
-                .queryParam("api_key", tmdbApiKey)
                 .queryParam("page", page)
                 .toUriString();
 
@@ -133,7 +164,6 @@ public class TmdbService {
 
         String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
                 .path("/search/movie")
-                .queryParam("api_key", tmdbApiKey)
                 .queryParam("query", query)
                 .toUriString();
 
@@ -162,7 +192,6 @@ public class TmdbService {
 
         String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
                 .path("/movie/{id}")
-                .queryParam("api_key", tmdbApiKey)
                 .buildAndExpand(movieId)
                 .toUriString();
 
@@ -200,7 +229,6 @@ public class TmdbService {
 
         String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
                 .path("/person/{id}")
-                .queryParam("api_key", tmdbApiKey)
                 .buildAndExpand(personId)
                 .toUriString();
 
@@ -235,7 +263,6 @@ public class TmdbService {
 
         String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
                 .path("/search/person")
-                .queryParam("api_key", tmdbApiKey)
                 .queryParam("query", query)
                 .toUriString();
 
@@ -264,7 +291,6 @@ public class TmdbService {
 
         String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
                 .path("/movie/{id}")
-                .queryParam("api_key", tmdbApiKey)
                 .buildAndExpand(id)
                 .toUriString();
 
@@ -290,7 +316,6 @@ public class TmdbService {
 
         String url = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
                 .path("/person/{id}")
-                .queryParam("api_key", tmdbApiKey)
                 .buildAndExpand(id)
                 .toUriString();
 

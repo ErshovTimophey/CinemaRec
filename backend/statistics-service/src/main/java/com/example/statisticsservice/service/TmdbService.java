@@ -1,6 +1,7 @@
 package com.example.statisticsservice.service;
 
 import com.example.statisticsservice.dto.MovieDetails;
+import com.example.statisticsservice.dto.MovieVideo;
 import com.example.statisticsservice.dto.TmdbMovie;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -234,5 +235,111 @@ public class TmdbService {
     public String getFullPosterUrl(String posterPath) {
         // ... (unchanged)
         return posterPath != null ? imageBaseUrl + posterPath : null;
+    }
+
+    public List<MovieVideo> getMovieVideos(Integer movieId) {
+        try {
+            log.info("Starting to fetch videos for movieId: {}", movieId);
+            String videosUrl = UriComponentsBuilder.fromHttpUrl(tmdbBaseUrl)
+                    .path("/movie/{movieId}/videos")
+                    .buildAndExpand(movieId)
+                    .toUriString();
+            
+            log.info("Fetching videos from URL: {}", videosUrl);
+            ResponseEntity<Map> response = restTemplate.exchange(
+                    videosUrl, HttpMethod.GET, new HttpEntity<>(headers), Map.class);
+            
+            log.info("Received response with status: {} for movieId: {}", response.getStatusCode(), movieId);
+
+            if (response.getStatusCode() == HttpStatus.OK && response.getBody() != null) {
+                Map<String, Object> responseBody = response.getBody();
+                if (responseBody.get("results") instanceof List<?>) {
+                    List<Map<String, Object>> results = (List<Map<String, Object>>) responseBody.get("results");
+                    log.debug("Found {} total videos for movieId: {}", results.size(), movieId);
+                    
+                    // First, try to get trailers and teasers
+                    List<MovieVideo> preferredVideos = results.stream()
+                            .filter(video -> {
+                                String site = (String) video.get("site");
+                                String type = (String) video.get("type");
+                                boolean isYouTube = "YouTube".equals(site);
+                                boolean isTrailerOrTeaser = "Trailer".equals(type) || "Teaser".equals(type);
+                                
+                                if (isYouTube) {
+                                    log.info("Found YouTube video - site: {}, type: {}, name: {}", 
+                                            site, type, video.get("name"));
+                                }
+                                
+                                return isYouTube && isTrailerOrTeaser;
+                            })
+                            .map(this::mapToMovieVideo)
+                            .filter(video -> video != null) // Filter out null videos
+                            .collect(Collectors.toList());
+                    
+                    // If we have preferred videos, return them
+                    if (!preferredVideos.isEmpty()) {
+                        log.info("Found {} trailers/teasers for movieId: {}", preferredVideos.size(), movieId);
+                        return preferredVideos;
+                    }
+                    
+                    // Otherwise, return any YouTube videos (clips, featurettes, etc.)
+                    List<MovieVideo> allYouTubeVideos = results.stream()
+                            .filter(video -> {
+                                String site = (String) video.get("site");
+                                return "YouTube".equals(site);
+                            })
+                            .map(this::mapToMovieVideo)
+                            .filter(video -> video != null) // Filter out null videos
+                            .collect(Collectors.toList());
+                    
+                    if (!allYouTubeVideos.isEmpty()) {
+                        log.info("Found {} YouTube videos (no trailers) for movieId: {}", 
+                                allYouTubeVideos.size(), movieId);
+                        return allYouTubeVideos;
+                    }
+                    
+                    log.warn("No YouTube videos found for movieId: {}. Total videos: {}", movieId, results.size());
+                    // Log all video types for debugging
+                    results.forEach(video -> {
+                        log.info("Video - site: {}, type: {}, name: {}", 
+                                video.get("site"), video.get("type"), video.get("name"));
+                    });
+                } else {
+                    log.warn("No 'results' field in response for movieId: {}", movieId);
+                }
+            } else {
+                log.warn("Invalid response status for movieId: {}, status: {}", movieId, response.getStatusCode());
+            }
+            return Collections.emptyList();
+        } catch (Exception e) {
+            log.error("Error fetching videos for movieId: {}", movieId, e);
+            return Collections.emptyList();
+        }
+    }
+
+    private MovieVideo mapToMovieVideo(Map<String, Object> videoMap) {
+        MovieVideo video = new MovieVideo();
+        
+        Object idObj = videoMap.get("id");
+        if (idObj != null) {
+            video.setId(idObj.toString());
+        }
+        
+        video.setKey((String) videoMap.get("key"));
+        video.setName((String) videoMap.get("name"));
+        video.setSite((String) videoMap.get("site"));
+        video.setType((String) videoMap.get("type"));
+        
+        if (videoMap.get("size") instanceof Number) {
+            video.setSize(((Number) videoMap.get("size")).intValue());
+        }
+        
+        // Validate that we have at least a key (required for YouTube URL)
+        if (video.getKey() == null || video.getKey().isEmpty()) {
+            log.warn("Video has no key, skipping: {}", videoMap);
+            return null;
+        }
+        
+        return video;
     }
 }

@@ -8,6 +8,7 @@ import Footer from './components/Footer';
 import OAuth2RedirectPage from './pages/OAuth2RedirectPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/user/Dashboard';
+import MoviePlayer from './pages/user/MoviePlayer';
 import './index.css';
 
 function App() {
@@ -22,6 +23,11 @@ function App() {
                 <Route path="/dashboard" element={
                     <ProtectedRoute>
                         <Dashboard />
+                    </ProtectedRoute>
+                } />
+                <Route path="/watch/:movieId" element={
+                    <ProtectedRoute>
+                        <MoviePlayer />
                     </ProtectedRoute>
                 } />
             </Routes>

@@ -47,7 +47,6 @@ const Quizzes = ({ email }) => {
                 setLoading(false);
             } catch (error) {
                 console.error('Error fetching data:', error);
-                toast.error(error.message || 'Failed to load quizzes');
                 setLoading(false);
             }
         };
@@ -114,10 +113,8 @@ const Quizzes = ({ email }) => {
             ].sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt))
              .slice(0, 4);
             setPastResults(updatedResults);
-            toast.success('Quiz result saved successfully');
         } catch (error) {
             console.error('Error saving quiz result:', error);
-            toast.error(error.message || 'Failed to save quiz result');
         }
     };
 
@@ -208,10 +205,8 @@ const Quizzes = ({ email }) => {
                 questions: [{ text: '', image: null, answers: ['', '', '', ''], correctAnswer: 0 }]
             });
             setShowCreateForm(false);
-            toast.success('Quiz created successfully');
         } catch (error) {
             console.error('Error creating quiz:', error);
-            toast.error(error.message || 'Failed to create quiz');
         }
     };
 
@@ -263,10 +258,8 @@ const Quizzes = ({ email }) => {
             });
             setShowEditForm(false);
             setEditQuizId(null);
-            toast.success('Quiz updated successfully');
         } catch (error) {
             console.error('Error updating quiz:', error);
-            toast.error(error.message || 'Failed to update quiz');
         }
     };
 
@@ -333,7 +326,7 @@ const Quizzes = ({ email }) => {
                         {question.imageUrl && (
                             <div className="mb-6">
                                 <img
-                                    src={question.imageUrl}
+                                     src={`http://localhost:8087/quizzes/proxy?url=${encodeURIComponent(question.imageUrl)}`}
                                     alt="Question visual"
                                     className="max-h-48 mx-auto rounded"
                                     onError={(e) => (e.target.src = '/placeholder-image.jpg')}

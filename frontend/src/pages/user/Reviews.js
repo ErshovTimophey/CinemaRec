@@ -43,8 +43,6 @@ const Reviews = ({ email }) => {
         setReviews(response.data);
         setLoading(false);
       } catch (error) {
-        console.error('Error fetching reviews:', error.response?.data || error.message);
-        toast.error(error.response?.data?.message || 'Failed to load reviews');
         setLoading(false);
       }
     };
@@ -132,14 +130,12 @@ const Reviews = ({ email }) => {
             }
           );
           setReviews(reviews.map((r) => (r.id === modalState.review.id ? response.data : r)));
-          toast.success('Review updated successfully');
         } else {
           console.log('Submitting new review');
           response = await axios.post(`http://localhost:8085/reviews?email=${email}`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' },
           });
           setReviews([response.data, ...reviews]);
-          toast.success('Review created successfully');
         }
 
         setShowForm(false);
@@ -165,12 +161,10 @@ const Reviews = ({ email }) => {
 
   const handleEditReview = (review) => {
     if (review.userEmail !== email) {
-      toast.error('You can only edit your own reviews');
       return;
     }
     if (!review.id) {
       console.error('Review ID is missing:', review);
-      toast.error('Cannot edit review: Invalid ID');
       return;
     }
     console.log('Opening edit modal for review ID:', review.id);
@@ -188,24 +182,20 @@ const Reviews = ({ email }) => {
   const handleDeleteReview = async (reviewId) => {
     if (!reviewId) {
       console.error('Review ID is missing for delete');
-      toast.error('Cannot delete review: Invalid ID');
       return;
     }
     const review = reviews.find((r) => r.id === reviewId);
     if (!review) {
       console.error('Review not found for ID:', reviewId);
-      toast.error('Review not found');
       return;
     }
     if (review.userEmail !== email) {
-      toast.error('You can only delete your own reviews');
       return;
     }
     try {
       console.log('Deleting review ID:', reviewId);
       await axios.delete(`http://localhost:8085/reviews/${reviewId}?email=${email}`);
       setReviews(reviews.filter((r) => r.id !== reviewId));
-      toast.success('Review deleted successfully');
       setModalState(null);
     } catch (error) {
       console.error('Error deleting review:', error.response?.data || error.message);
@@ -269,7 +259,7 @@ const Reviews = ({ email }) => {
                   {modalState.review.imageUrls.map((url, index) => (
                     <div key={index} className="relative aspect-square">
                       <img
-                        src={url}
+                        src={`http://localhost:8087/quizzes/proxy?url=${encodeURIComponent(url)}`}
                         alt={`${modalState.review.movieTitle}-${index}`}
                         className="w-full h-40 object-contain rounded cursor-pointer"
                         onError={(e) => (e.target.src = '/placeholder-image.jpg')}
@@ -338,7 +328,7 @@ const Reviews = ({ email }) => {
                         .map((url, index) => (
                           <div key={index} className="relative aspect-square">
                             <img
-                              src={url}
+                              src={`http://localhost:8087/quizzes/proxy?url=${encodeURIComponent(url)}`}
                               alt={`${modalState.review.movieTitle}-${index}`}
                               className="w-full h-40 object-contain rounded cursor-pointer"
                               onError={(e) => (e.target.src = '/placeholder-image.jpg')}
@@ -438,7 +428,7 @@ const Reviews = ({ email }) => {
           <Lightbox
             open={lightboxOpen}
             close={() => setLightboxOpen(false)}
-            slides={modalState?.type === 'view' ? lightboxImages : newReview.images.map((img) => ({ src: URL.createObjectURL(img) }))}
+            slides={modalState?.type === 'view' ? lightboxImages : newReview.images.map((img) => ({ src: `http://localhost:8087/quizzes/proxy?url=${img}` }))}
             index={lightboxIndex}
             styles={{ container: { zIndex: 60 } }}
           />
@@ -616,7 +606,7 @@ const Reviews = ({ email }) => {
               <div className="p-4">
                 {review.imageUrls && review.imageUrls.length > 0 && (
                   <img
-                    src={review.imageUrls[0]}
+                    src={`http://localhost:8087/quizzes/proxy?url=${review.imageUrls[0]}`}
                     alt={`${review.movieTitle}-preview`}
                     className="w-full h-24 object-contain rounded mb-2 cursor-pointer"
                     onError={(e) => (e.target.src = '/placeholder-image.jpg')}

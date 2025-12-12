@@ -205,6 +205,9 @@ services:
       - TMDB_API_IMAGE_BASE_URL=https://image.tmdb.org/t/p/w500
     ports:
       - "8082:8082"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     depends_on:
       - postgres
       - redis
@@ -237,6 +240,9 @@ services:
       - TMDB_API_IMAGE_BASE_URL=https://image.tmdb.org/t/p/w500
     ports:
       - "8088:8088"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     depends_on:
       - postgres
       - redis

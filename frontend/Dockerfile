@@ -8,9 +8,8 @@ WORKDIR /app
 COPY package*.json ./
 
 # Устанавливаем зависимости
-RUN npm install
-
 RUN npm install --legacy-peer-deps
+
 # Копируем исходный код
 COPY . .
 
@@ -19,7 +18,7 @@ COPY . .
 RUN npm run build
 
 # Указываем порт
-EXPOSE 8080
+EXPOSE 3000
 
 # Запускаем приложение
 CMD ["npm", "start"]
