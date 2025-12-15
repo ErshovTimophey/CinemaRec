@@ -46,6 +46,29 @@ docker-compose down
 
 ## Если что-то пошло не так
 
+### Ошибка "Internal Server Error for API route" / "check if the server supports the requested API version"
+
+Это значит, что **Docker на Windows не отвечает** или версия API не совпадает. Сделайте по порядку:
+
+1. **Проверьте, что Docker Desktop запущен**
+   - В трее (возле часов) должна быть иконка Docker.
+   - Если её нет — запустите **Docker Desktop** из меню Пуск и дождитесь надписи "Docker Desktop is running".
+
+2. **Перезапустите Docker Desktop**
+   - Правый клик по иконке Docker в трее → **Restart** (или Quit, затем запустить снова).
+   - Подождите 1–2 минуты после старта.
+
+3. **Проверьте работу Docker в терминале:**
+   ```cmd
+   docker info
+   ```
+   Если команда выполняется без ошибок — можно снова запускать:
+   ```cmd
+   docker-compose-up.bat
+   ```
+
+4. **Если ошибка остаётся** — обновите Docker Desktop до последней версии с [docker.com](https://www.docker.com/products/docker-desktop/) или через **Settings → Software updates** в Docker Desktop.
+
 ### Ошибка JAVA_HOME:
 ```cmd
 set-java-home.bat

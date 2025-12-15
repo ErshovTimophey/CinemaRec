@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { FaEnvelope, FaLock, FaGoogle } from 'react-icons/fa';
 import { GoogleOAuthProvider, GoogleLogin } from '@react-oauth/google';
 import jwt_decode from 'jwt-decode';
@@ -13,6 +13,8 @@ const Login = () => {
     const [password, setPassword] = useState('');
     const [emailError, setEmailError] = useState('');
     const navigate = useNavigate();
+    const location = useLocation();
+    const requireAuthMessage = location.state?.requireAuth === true;
 
     const validateEmail = (email) => {
         const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -54,11 +56,12 @@ const Login = () => {
                 autoClose: 3000,
             });
 
-            // Redirect based on role
+            // Redirect based on role or back to requested page
+            const from = location.state?.from?.pathname;
             if (userRole === 'ADMIN') {
-                navigate('/admin/dashboard'); // Redirect to admin dashboard
+                navigate('/admin/dashboard');
             } else {
-                navigate('/dashboard');
+                navigate(from && from.startsWith('/dashboard') ? from : '/dashboard', { replace: true });
             }
 
         } catch (error) {
@@ -88,10 +91,11 @@ const Login = () => {
                 autoClose: 3000,
             });
 
+            const from = location.state?.from?.pathname;
             if (role === 'ADMIN') {
                 navigate('/admin/dashboard');
             } else {
-                navigate('/dashboard');
+                navigate(from && from.startsWith('/dashboard') ? from : '/dashboard', { replace: true });
             }
 
         } catch (error) {
@@ -123,6 +127,11 @@ const Login = () => {
                     <h2 className="text-3xl font-bold mb-6 text-purple-600 flex items-center">
                         <FaLock className="mr-2" /> Login
                     </h2>
+                    {requireAuthMessage && (
+                        <p className="mb-4 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+                            Please log in to access Recommendations, Statistics, and other features.
+                        </p>
+                    )}
 
                     <form onSubmit={handleSubmit}>
                         <div className="mb-4">

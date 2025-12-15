@@ -1,9 +1,22 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FaHome, FaSignInAlt, FaUserPlus, FaFilm, FaChartBar, FaPenAlt, FaQuestionCircle, FaSignOutAlt, FaBars, FaTimes } from 'react-icons/fa';
+import jwt_decode from 'jwt-decode';
+
+const isAuthenticated = () => {
+    try {
+        const token = localStorage.getItem('token');
+        if (!token) return false;
+        const decoded = jwt_decode(token);
+        if (decoded.exp * 1000 < Date.now()) return false;
+        return true;
+    } catch {
+        return false;
+    }
+};
 
 const Navbar = () => {
-    const token = localStorage.getItem('token');
+    const [authenticated, setAuthenticated] = useState(isAuthenticated);
     const location = useLocation();
     const navigate = useNavigate();
     const [menuOpen, setMenuOpen] = useState(false);
@@ -11,7 +24,7 @@ const Navbar = () => {
     const menuRef = useRef(null);
     const logoutMenuRef = useRef(null);
 
-    const homeLink = ['/login', '/register', '/'].includes(location.pathname) ? '/' : '/dashboard';
+    const homeLink = !authenticated ? '/' : (['/login', '/register', '/'].includes(location.pathname) ? '/' : '/dashboard');
 
     const dashboardLinks = [
         { to: '/dashboard?tab=recommendations', icon: FaFilm, label: 'Recommendations' },
@@ -35,10 +48,15 @@ const Navbar = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, [menuOpen, logoutMenuOpen]);
 
+    useEffect(() => {
+        setAuthenticated(isAuthenticated());
+    }, [location.pathname]);
+
     const handleLogout = () => {
         localStorage.removeItem('token');
         setMenuOpen(false);
         setLogoutMenuOpen(false);
+        setAuthenticated(false);
         navigate('/login');
     };
 
@@ -52,9 +70,9 @@ const Navbar = () => {
                     <FaHome className="mr-2" /> CinemaRec
                 </Link>
 
-                {/* Desktop nav: visible from lg and up */}
+                {/* Desktop nav: only Login/Register when not authenticated; dashboard links only when authenticated. */}
                 <div className="hidden lg:flex items-center gap-1 xl:gap-2">
-                    {!token ? (
+                    {!authenticated ? (
                         <>
                             <Link to="/login" className={`${linkClass} px-2 py-1`}>
                                 <FaSignInAlt className="mr-2" /> Login
@@ -101,7 +119,7 @@ const Navbar = () => {
 
                 {/* Mobile: hamburger + dropdown */}
                 <div className="lg:hidden relative flex items-center" ref={menuRef}>
-                    {!token ? (
+                    {!authenticated ? (
                         <div className="flex items-center gap-2">
                             <Link to="/login" className={`${linkClass} text-sm`}>
                                 <FaSignInAlt className="mr-1" /> Login

@@ -706,16 +706,16 @@ const MovieCard = ({ movie, email, onMarkAsWatched, onRemoveFromWatched, onClick
             </div>
             <div className="flex-shrink-0 min-h-[5.5rem] overflow-hidden p-2 sm:p-3 flex flex-col min-w-0 border-t border-gray-100">
                 <div className="flex justify-between items-center gap-2 min-w-0 mb-0.5">
-                    <h3 className="text-xs sm:text-sm font-bold truncate min-w-0" title={displayMovie.title}>{displayMovie.title}</h3>
-                    <span className="flex items-center text-yellow-500 shrink-0 text-xs">
+                    <h3 className="text-sm sm:text-base font-bold truncate min-w-0" title={displayMovie.title}>{displayMovie.title}</h3>
+                    <span className="flex items-center text-yellow-500 shrink-0 text-sm">
                         <FaStar className="mr-1" />
                         {displayMovie.voteAverage ? displayMovie.voteAverage.toFixed(1) : 'N/A'}
                     </span>
                 </div>
-                <p className="text-gray-600 text-xs truncate min-w-0" title={displayMovie.genreNames.length > 0 ? displayMovie.genreNames.join(', ') : 'No genres'}>
+                <p className="text-gray-600 text-sm truncate min-w-0" title={displayMovie.genreNames.length > 0 ? displayMovie.genreNames.join(', ') : 'No genres'}>
                     {displayMovie.genreNames.length > 0 ? displayMovie.genreNames.join(', ') : 'No genres'}
                 </p>
-                <p className="text-gray-700 text-xs line-clamp-2 min-w-0 mt-0.5 leading-tight overflow-hidden" title={displayMovie.overview}>
+                <p className="text-gray-700 text-sm line-clamp-2 min-w-0 mt-0.5 leading-tight overflow-hidden" title={displayMovie.overview}>
                     {displayMovie.overview}
                 </p>
                 <div className="flex flex-wrap gap-1 sm:gap-2 mt-1 flex-shrink-0">

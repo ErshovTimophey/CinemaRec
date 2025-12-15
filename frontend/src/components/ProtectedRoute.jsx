@@ -1,28 +1,31 @@
 import React from 'react';
-import { Navigate } from 'react-router-dom';
+import { Navigate, useLocation } from 'react-router-dom';
 import jwt_decode from 'jwt-decode';
 
 const ProtectedRoute = ({ children }) => {
+    const location = useLocation();
     const token = localStorage.getItem('token');
 
+    const loginRedirect = (replace = true) => (
+        <Navigate to="/login" replace={replace} state={{ from: location, requireAuth: true }} />
+    );
+
     if (!token) {
-        return <Navigate to="/login" replace />;
+        return loginRedirect();
     }
 
     try {
         const decoded = jwt_decode(token);
-        const userRole = decoded.role;
 
-        // Проверяем срок действия токена
         if (decoded.exp * 1000 < Date.now()) {
             localStorage.removeItem('token');
-            return <Navigate to="/login" replace />;
+            return loginRedirect();
         }
 
         return children;
     } catch (e) {
         localStorage.removeItem('token');
-        return <Navigate to="/login" replace />;
+        return loginRedirect();
     }
 };
 

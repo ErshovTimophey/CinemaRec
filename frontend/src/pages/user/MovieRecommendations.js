@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { FaStar, FaEdit, FaRedo, FaPlay } from 'react-icons/fa';
@@ -15,6 +15,7 @@ const MovieRecommendations = ({ email }) => {
   const [movieDetails, setMovieDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState(null);
+  const sectionRefs = useRef({ actors: null, genres: null, directors: null, movies: null });
 
   const fetchRecommendations = async () => {
     try {
@@ -178,10 +179,37 @@ const MovieRecommendations = ({ email }) => {
     movies: recommendations.filter(rec => rec.category === 'movies'),
   };
 
+  const scrollToSection = (key) => {
+    sectionRefs.current[key]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const sectionButtons = [
+    { key: 'actors', label: 'Actors', hasItems: groupedRecommendations.actors.length > 0 },
+    { key: 'genres', label: 'Genres', hasItems: groupedRecommendations.genres.length > 0 },
+    { key: 'directors', label: 'Directors', hasItems: groupedRecommendations.directors.length > 0 },
+    { key: 'movies', label: 'Movies', hasItems: groupedRecommendations.movies.length > 0 },
+  ].filter(b => b.hasItems);
+
   return (
     <div className="p-3 sm:p-4 md:p-6 pt-0 sm:pt-2">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 sm:gap-4 mb-4 sm:mb-6">
-        <h2 className="text-xl sm:text-2xl font-bold">Your Recommendations</h2>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
+          <h2 className="text-xl sm:text-2xl font-bold">Your Recommendations</h2>
+          {sectionButtons.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {sectionButtons.map(({ key, label }) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => scrollToSection(key)}
+                  className="px-2.5 py-1 text-sm rounded-md bg-purple-100 text-purple-700 hover:bg-purple-200 transition"
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
           <button
             onClick={handleRefreshRecommendations}
@@ -211,7 +239,7 @@ const MovieRecommendations = ({ email }) => {
       ) : (
         <div className="space-y-12">
           {groupedRecommendations.actors.length > 0 && (
-            <div>
+            <div ref={el => sectionRefs.current.actors = el}>
               <h3 className="text-xl font-semibold mb-4">Based on Your Favorite Actors</h3>
               <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 items-stretch [&>*]:min-w-0">
                 {groupedRecommendations.actors.map(movie => (
@@ -228,7 +256,7 @@ const MovieRecommendations = ({ email }) => {
           )}
 
           {groupedRecommendations.genres.length > 0 && (
-            <div>
+            <div ref={el => sectionRefs.current.genres = el}>
               <h3 className="text-xl font-semibold mb-4">Based on Your Favorite Genres</h3>
               <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 items-stretch [&>*]:min-w-0">
                 {groupedRecommendations.genres.map(movie => (
@@ -245,7 +273,7 @@ const MovieRecommendations = ({ email }) => {
           )}
 
           {groupedRecommendations.directors.length > 0 && (
-            <div>
+            <div ref={el => sectionRefs.current.directors = el}>
               <h3 className="text-xl font-semibold mb-4">Based on Your Favorite Directors</h3>
               <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 items-stretch [&>*]:min-w-0">
                 {groupedRecommendations.directors.map(movie => (
@@ -262,7 +290,7 @@ const MovieRecommendations = ({ email }) => {
           )}
 
           {groupedRecommendations.movies.length > 0 && (
-            <div>
+            <div ref={el => sectionRefs.current.movies = el}>
               <h3 className="text-xl font-semibold mb-4">Based on Your Favorite Movies</h3>
               <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-6 items-stretch [&>*]:min-w-0">
                 {groupedRecommendations.movies.map(movie => (
@@ -432,16 +460,16 @@ const MovieCard = ({ movie, email, onMarkAsWatched, onClick }) => {
       </div>
       <div className="flex-shrink-0 min-h-[4.5rem] overflow-hidden p-2 sm:p-3 flex flex-col min-w-0 border-t border-gray-100">
         <div className="flex justify-between items-center gap-2 min-w-0 mb-0.5">
-          <h3 className="text-xs sm:text-sm font-bold truncate min-w-0" title={movie.movieTitle}>{movie.movieTitle}</h3>
-          <span className="flex items-center text-yellow-500 shrink-0 text-xs">
+          <h3 className="text-sm sm:text-base font-bold truncate min-w-0" title={movie.movieTitle}>{movie.movieTitle}</h3>
+          <span className="flex items-center text-yellow-500 shrink-0 text-sm">
             <FaStar className="mr-1" />
             {movie.rating?.toFixed(1) || 'N/A'}
           </span>
         </div>
-        <p className="text-gray-600 text-xs truncate min-w-0" title={movie.genres?.trim() || 'No genres'}>
+        <p className="text-gray-600 text-sm truncate min-w-0" title={movie.genres?.trim() || 'No genres'}>
           {movie.genres?.trim() ? movie.genres : 'No genres'}
         </p>
-        <p className="text-gray-700 text-xs line-clamp-2 min-w-0 mt-0.5 leading-tight" title={movie.overview || 'No description available'}>
+        <p className="text-gray-700 text-sm line-clamp-2 min-w-0 mt-0.5 leading-tight" title={movie.overview || 'No description available'}>
           {movie.overview || 'No description available'}
         </p>
       </div>
