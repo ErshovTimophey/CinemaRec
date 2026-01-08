@@ -141,6 +141,7 @@ services:
       - AWS_S3_ENDPOINT=http://localstack:4566
     ports:
       - "8086:8086"
+      - "9094:9094"
     depends_on:
       - localstack
     networks:
@@ -171,6 +172,7 @@ services:
       - TMDB_API_IMAGE_BASE_URL=https://image.tmdb.org/t/p/w500
     ports:
       - "8083:8083"
+      - "9093:9093"
     depends_on:
       - postgres
       - redis
@@ -198,7 +200,6 @@ services:
       - SPRING_KAFKA_PRODUCER_KEY_SERIALIZER=org.apache.kafka.common.serialization.StringSerializer
       - SPRING_KAFKA_PRODUCER_VALUE_SERIALIZER=org.springframework.kafka.support.serializer.JsonSerializer
       - LOGGING_LEVEL_ORG_APACHE_KAFKA=INFO
-      - FEIGN_CLIENT_CONFIG_RECOMMENDATION_SERVICE_URL=http://recommendation-service:8083
       - REDIS_URL=redis://redis:6379
       - TMDB_API_KEY=Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyZDQ2MmI5MTYxZGM3NDIwMzI0NWVjMDcyOWRmZjM4NyIsIm5iZiI6MTc0NzA2MzAxOC41MzUsInN1YiI6IjY4MjIxMGVhMzJmNzNlMTJlNDczOTNjNyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Xx1dOcNyzFsIMIB3h3hD006NVEoZMFXsF6d7GVlUsTA
       - TMDB_API_BASE_URL=https://api.themoviedb.org/3
@@ -247,6 +248,26 @@ services:
       - postgres
       - redis
       - kafka
+    networks:
+      - app_network
+    restart: unless-stopped
+
+  playback-service:
+    image: playback-service:latest
+    container_name: playback-service
+    build:
+      context: ./playback-service
+      dockerfile: Dockerfile
+    environment:
+      - SERVER_PORT=8090
+      - TMDB_API_BASE_URL=https://api.themoviedb.org/3
+      - TMDB_API_IMAGE_BASE_URL=https://image.tmdb.org/t/p/w500
+      - TMDB_API_BEARER_TOKEN=Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiIyZDQ2MmI5MTYxZGM3NDIwMzI0NWVjMDcyOWRmZjM4NyIsIm5iZiI6MTc0NzA2MzAxOC41MzUsInN1YiI6IjY4MjIxMGVhMzJmNzNlMTJlNDczOTNjNyIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.Xx1dOcNyzFsIMIB3h3hD006NVEoZMFXsF6d7GVlUsTA
+    ports:
+      - "8090:8090"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     networks:
       - app_network
     restart: unless-stopped
