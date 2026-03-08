@@ -1,6 +1,7 @@
 package com.example.quizservice.service;
 
-import com.example.quizservice.client.ImageStorageClient;
+import com.example.cinemarec.grpc.imagestorage.ImageStorageServiceGrpc;
+import com.example.cinemarec.grpc.imagestorage.UploadImageRequest;
 import com.example.quizservice.dto.QuestionDTO;
 import com.example.quizservice.dto.QuizDTO;
 import com.example.quizservice.dto.QuizResultDTO;
@@ -9,11 +10,14 @@ import com.example.quizservice.model.Question;
 import com.example.quizservice.model.QuizResult;
 import com.example.quizservice.repository.QuizRepository;
 import com.example.quizservice.repository.QuizResultRepository;
+import com.google.protobuf.ByteString;
+import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -29,8 +33,8 @@ public class QuizService {
     @Autowired
     private QuizResultRepository quizResultRepository;
 
-    @Autowired
-    private ImageStorageClient imageStorageClient;
+    @GrpcClient("image-storage-service")
+    private ImageStorageServiceGrpc.ImageStorageServiceBlockingStub imageStorageStub;
 
     public List<QuizDTO> getAllQuizzes() {
         logger.info("Fetching all quizzes");
@@ -53,7 +57,7 @@ public class QuizService {
             question.setAnswers(qDTO.getAnswers());
             question.setCorrectAnswer(qDTO.getCorrectAnswer());
             if (qDTO.getImage() != null && !qDTO.getImage().isEmpty()) {
-                String imageUrl = imageStorageClient.uploadImage(qDTO.getImage());
+                String imageUrl = uploadImageViaGrpc(qDTO.getImage());
                 question.setImageUrl(imageUrl);
                 qDTO.setImageUrl(imageUrl);
                 logger.info("Uploaded question image: {}", imageUrl);
@@ -115,7 +119,7 @@ public class QuizService {
             question.setAnswers(qDTO.getAnswers());
             question.setCorrectAnswer(qDTO.getCorrectAnswer());
             if (qDTO.getImage() != null && !qDTO.getImage().isEmpty()) {
-                String imageUrl = imageStorageClient.uploadImage(qDTO.getImage());
+                String imageUrl = uploadImageViaGrpc(qDTO.getImage());
                 question.setImageUrl(imageUrl);
                 qDTO.setImageUrl(imageUrl);
                 logger.info("Uploaded question image: {}", imageUrl);
@@ -159,6 +163,17 @@ public class QuizService {
         return quizResultRepository.findTop4ByUserEmailOrderByCompletedAtDesc(userEmail).stream()
                 .map(this::convertToResultDTO)
                 .collect(Collectors.toList());
+    }
+
+    private String uploadImageViaGrpc(MultipartFile image) {
+        try {
+            return imageStorageStub.uploadImage(UploadImageRequest.newBuilder()
+                    .setImageData(ByteString.copyFrom(image.getBytes()))
+                    .setFileName(image.getOriginalFilename() != null ? image.getOriginalFilename() : "image")
+                    .build()).getImageUrl();
+        } catch (Exception e) {
+            throw new RuntimeException("gRPC image-storage upload failed", e);
+        }
     }
 
     private QuizDTO convertToDTO(Quiz quiz) {

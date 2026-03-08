@@ -64,9 +64,22 @@ public class S3Service {
     }
 
     public String uploadImage(MultipartFile image) {
-        String fileName = UUID.randomUUID() + "-" + image.getOriginalFilename();
-        File file = convertMultipartFileToFile(image);
         try {
+            return uploadImage(image.getBytes(), image.getOriginalFilename() != null ? image.getOriginalFilename() : "image");
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to read multipart file", e);
+        }
+    }
+
+    /** Used by gRPC and other callers that have raw bytes. */
+    public String uploadImage(byte[] imageData, String originalFileName) {
+        String fileName = UUID.randomUUID() + "-" + (originalFileName != null ? originalFileName : "image");
+        File file = null;
+        try {
+            file = File.createTempFile("grpc-upload-", null);
+            try (FileOutputStream fos = new FileOutputStream(file)) {
+                fos.write(imageData);
+            }
             logger.info("Uploading image to S3: {}", fileName);
             if (!s3Client.doesBucketExistV2(bucketName)) {
                 logger.info("Bucket {} does not exist, creating it", bucketName);
@@ -82,7 +95,9 @@ public class S3Service {
             logger.error("Failed to upload image to S3: {}", e.getMessage(), e);
             throw new RuntimeException("Failed to upload image to S3", e);
         } finally {
-            file.delete();
+            if (file != null) {
+                file.delete();
+            }
         }
     }
 
