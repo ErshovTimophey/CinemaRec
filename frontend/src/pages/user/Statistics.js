@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, PieChart, Pie, Cell } from 'recharts';
-import { FaFilm, FaGlobe, FaVideo, FaSearch, FaTrash, FaStar, FaEye, FaPlay } from 'react-icons/fa';
+import { FaFilm, FaGlobe, FaVideo, FaSearch, FaTrash, FaStar, FaEye, FaPlay, FaHeart, FaRegHeart } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import { toast } from 'react-toastify';
 
@@ -24,6 +24,51 @@ const Statistics = ({ email }) => {
     const [page, setPage] = useState(1);
     const [hasMore, setHasMore] = useState(true);
     const loaderRef = useRef(null);
+    const [favoriteMovieIds, setFavoriteMovieIds] = useState([]);
+
+    const favoriteIdSet = useMemo(
+        () => new Set((favoriteMovieIds || []).map((id) => Number(id)).filter(Boolean)),
+        [favoriteMovieIds]
+    );
+
+    useEffect(() => {
+        const loadFav = async () => {
+            try {
+                const prefsRes = await axios.get(`http://localhost:8082/users/${email}/preferences`);
+                const pref = prefsRes.data?.preferences ?? prefsRes.data;
+                setFavoriteMovieIds(pref?.favoriteMovies || []);
+            } catch (e) {
+                setFavoriteMovieIds([]);
+            }
+        };
+        if (email) loadFav();
+    }, [email]);
+
+    const toggleFavoriteMovie = async (movieId) => {
+        try {
+            const prefsRes = await axios.get(`http://localhost:8082/users/${email}/preferences`);
+            const pref = prefsRes.data?.preferences ?? prefsRes.data ?? {};
+            const current = (pref.favoriteMovies || []).map((id) => Number(id)).filter(Boolean);
+            const idNum = Number(movieId);
+            const next = current.includes(idNum)
+                ? current.filter((id) => id !== idNum)
+                : [...current, idNum];
+
+            const payload = {
+                favoriteGenres: pref.favoriteGenres || [],
+                favoriteActors: pref.favoriteActors || [],
+                favoriteDirectors: pref.favoriteDirectors || [],
+                favoriteMovies: next,
+                minRating: pref.minRating ?? 7,
+            };
+            await axios.put(`http://localhost:8082/users/${email}/preferences`, payload);
+            setFavoriteMovieIds(next);
+            toast.success(current.includes(idNum) ? 'Removed from favorites' : 'Added to favorites');
+        } catch (e) {
+            console.error('Error toggling favorite movie:', e);
+            toast.error('Failed to update favorites');
+        }
+    };
 
     // Fetch statistics
     useEffect(() => {
@@ -469,6 +514,8 @@ const Statistics = ({ email }) => {
                                     email={email}
                                     onMarkAsWatched={handleMarkAsWatched}
                                     onRemoveFromWatched={handleRemoveFromWatched}
+                                    onToggleFavorite={toggleFavoriteMovie}
+                                    isFavorite={favoriteIdSet.has(Number(movie.movieId))}
                                     onClick={() => setSelectedMovie(movie)}
                                 />
                             ))}
@@ -517,6 +564,8 @@ const Statistics = ({ email }) => {
                                         email={email}
                                         onMarkAsWatched={handleMarkAsWatched}
                                         onRemoveFromWatched={handleRemoveFromWatched}
+                                        onToggleFavorite={toggleFavoriteMovie}
+                                        isFavorite={favoriteIdSet.has(Number(movie.id))}
                                         onClick={() => setSelectedMovie(movie)}
                                     />
                                 ))}
@@ -614,6 +663,19 @@ const Statistics = ({ email }) => {
                                     </div>
                                 </div>
                                 <div className="flex flex-wrap justify-end gap-2 mt-4">
+                                    <div className="relative group">
+                                        <button
+                                            type="button"
+                                            onClick={() => toggleFavoriteMovie(movieDetails.id)}
+                                            className="p-2 rounded bg-white shadow hover:bg-gray-50 text-pink-600"
+                                            aria-label={favoriteIdSet.has(Number(movieDetails.id)) ? 'Remove from favorites' : 'Add to favorites'}
+                                        >
+                                            {favoriteIdSet.has(Number(movieDetails.id)) ? <FaHeart /> : <FaRegHeart />}
+                                        </button>
+                                        <span className="pointer-events-none opacity-0 group-hover:opacity-100 transition absolute -top-9 left-1/2 -translate-x-1/2 bg-black text-white text-[11px] px-2 py-1 rounded whitespace-nowrap">
+                                            {favoriteIdSet.has(Number(movieDetails.id)) ? 'Remove from favorites' : 'Add to favorites'}
+                                        </span>
+                                    </div>
                                     {movieDetails.watched ? (
                                         <button
                                             onClick={() => handleRemoveFromWatched(movieDetails.id)}
@@ -623,13 +685,19 @@ const Statistics = ({ email }) => {
                                             Remove from Watched
                                         </button>
                                     ) : (
-                                        <button
-                                            onClick={() => handleMarkAsWatched(movieDetails.id)}
-                                            className="flex items-center px-3 py-2 sm:px-4 sm:py-2 rounded text-sm sm:text-base bg-purple-100 text-purple-800 hover:bg-purple-200"
-                                        >
-                                            <FaEye className="mr-1" />
-                                            Mark as Watched
-                                        </button>
+                                        <div className="relative group">
+                                            <button
+                                                type="button"
+                                                onClick={() => handleMarkAsWatched(movieDetails.id)}
+                                                className="p-2 rounded bg-purple-100 text-purple-800 hover:bg-purple-200"
+                                                aria-label="Mark as watched"
+                                            >
+                                                <FaEye />
+                                            </button>
+                                            <span className="pointer-events-none opacity-0 group-hover:opacity-100 transition absolute -top-9 left-1/2 -translate-x-1/2 bg-black text-white text-[11px] px-2 py-1 rounded whitespace-nowrap">
+                                                Mark as watched
+                                            </span>
+                                        </div>
                                     )}
                                     <button
                                         onClick={closeModal}
@@ -657,7 +725,7 @@ const Statistics = ({ email }) => {
     );
 };
 
-const MovieCard = ({ movie, email, onMarkAsWatched, onRemoveFromWatched, onClick }) => {
+const MovieCard = ({ movie, email, onMarkAsWatched, onRemoveFromWatched, onToggleFavorite, isFavorite, onClick }) => {
     const navigate = useNavigate();
     
     const displayMovie = {
@@ -675,6 +743,23 @@ const MovieCard = ({ movie, email, onMarkAsWatched, onRemoveFromWatched, onClick
         navigate(`/watch/${displayMovie.id}?email=${encodeURIComponent(email)}`);
     };
 
+    const handleMarkWatched = (e) => {
+        e.stopPropagation();
+        if (displayMovie.watched) return;
+        onMarkAsWatched?.(displayMovie.id);
+    };
+
+    const handleUnmarkWatched = (e) => {
+        e.stopPropagation();
+        if (!displayMovie.watched) return;
+        onRemoveFromWatched?.(displayMovie.id);
+    };
+
+    const handleToggleFavorite = (e) => {
+        e.stopPropagation();
+        onToggleFavorite?.(displayMovie.id);
+    };
+
     console.log('MovieCard displayMovie:', displayMovie);
 
     const posterSrc = displayMovie.posterPath
@@ -684,9 +769,22 @@ const MovieCard = ({ movie, email, onMarkAsWatched, onRemoveFromWatched, onClick
     return (
         <motion.div
             whileHover={{ scale: 1.03 }}
-            className="bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer flex flex-col w-full min-w-0"
+            className="bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer flex flex-col w-full min-w-0 relative"
             onClick={onClick}
         >
+            {/* Watched badge (кликабелен для unwatch) */}
+            {displayMovie.watched && (
+                <button
+                    type="button"
+                    onClick={handleUnmarkWatched}
+                    className="absolute left-2 top-2 z-20 inline-flex items-center gap-1 rounded-full bg-purple-300 text-purple-900 px-2 py-1 text-[11px] font-semibold shadow"
+                    aria-label="Unmark watched"
+                >
+                    <FaEye className="text-[11px]" />
+                    Watched
+                </button>
+            )}
+
             <div className="relative w-full aspect-[2/3] flex-shrink-0 overflow-hidden bg-gray-200">
                 <img
                     src={posterSrc}
@@ -694,17 +792,9 @@ const MovieCard = ({ movie, email, onMarkAsWatched, onRemoveFromWatched, onClick
                     className="w-full h-full object-cover object-center"
                     onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/500x750?text=No+Image'; }}
                 />
-                <div className="absolute inset-x-0 bottom-2 flex justify-center z-10">
-                    <button
-                        onClick={handleWatch}
-                        className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg flex items-center transition shadow-lg text-xs sm:text-sm"
-                    >
-                        <FaPlay className="mr-1.5 sm:mr-2 shrink-0" />
-                        Watch
-                    </button>
-                </div>
             </div>
-            <div className="flex-shrink-0 min-h-[5.5rem] overflow-hidden p-2 sm:p-3 flex flex-col min-w-0 border-t border-gray-100">
+
+            <div className="flex-shrink-0 min-h-[6rem] overflow-hidden p-2 sm:p-3 flex flex-col min-w-0 border-t border-gray-100 relative">
                 <div className="flex justify-between items-center gap-2 min-w-0 mb-0.5">
                     <h3 className="text-sm sm:text-base font-bold truncate min-w-0" title={displayMovie.title}>{displayMovie.title}</h3>
                     <span className="flex items-center text-yellow-500 shrink-0 text-sm">
@@ -718,30 +808,47 @@ const MovieCard = ({ movie, email, onMarkAsWatched, onRemoveFromWatched, onClick
                 <p className="text-gray-700 text-sm line-clamp-2 min-w-0 mt-0.5 leading-tight overflow-hidden" title={displayMovie.overview}>
                     {displayMovie.overview}
                 </p>
-                <div className="flex flex-wrap gap-1 sm:gap-2 mt-1 flex-shrink-0">
-                    {displayMovie.watched ? (
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onRemoveFromWatched(displayMovie.id);
-                            }}
-                            className="flex items-center px-2 py-1 rounded text-xs bg-red-600 text-white hover:bg-red-700"
-                        >
-                            <FaTrash className="mr-1" />
-                            Remove from Watched
-                        </button>
-                    ) : (
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onMarkAsWatched(displayMovie.id);
-                            }}
-                            className="flex items-center px-2 py-1 rounded text-xs bg-purple-100 text-purple-800 hover:bg-purple-200"
-                        >
-                            <FaEye className="mr-1" />
-                            Mark as Watched
-                        </button>
+
+                {/* Actions — в правом нижнем углу блока с текстом (одна кнопка watched, без дублей) */}
+                <div className="absolute right-2 bottom-2 flex items-center gap-2">
+                    <button
+                        type="button"
+                        onClick={handleWatch}
+                        className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-full flex items-center transition shadow text-xs sm:text-sm"
+                    >
+                        <FaPlay className="mr-1.5 shrink-0" />
+                        Watch
+                    </button>
+
+                    {!displayMovie.watched && (
+                        <div className="relative group/btn">
+                            <button
+                                type="button"
+                                onClick={handleMarkWatched}
+                                className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 text-purple-800 shadow"
+                                aria-label="Mark as watched"
+                            >
+                                <FaEye />
+                            </button>
+                            <span className="pointer-events-none opacity-0 group-hover/btn:opacity-100 transition-opacity delay-700 absolute -top-9 right-0 bg-black text-white text-[11px] px-2 py-1 rounded whitespace-nowrap">
+                                Mark as watched
+                            </span>
+                        </div>
                     )}
+
+                    <div className="relative group/btn">
+                        <button
+                            type="button"
+                            onClick={handleToggleFavorite}
+                            className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 text-pink-600 shadow"
+                            aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                        >
+                            {isFavorite ? <FaHeart /> : <FaRegHeart />}
+                        </button>
+                        <span className="pointer-events-none opacity-0 group-hover/btn:opacity-100 transition-opacity delay-700 absolute -top-9 right-0 bg-black text-white text-[11px] px-2 py-1 rounded whitespace-nowrap">
+                            {isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                        </span>
+                    </div>
                 </div>
             </div>
         </motion.div>

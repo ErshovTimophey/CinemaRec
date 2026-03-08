@@ -9,6 +9,10 @@ import OAuth2RedirectPage from './pages/OAuth2RedirectPage';
 import ProtectedRoute from './components/ProtectedRoute';
 import Dashboard from './pages/user/Dashboard';
 import MoviePlayer from './pages/user/MoviePlayer';
+import Movies from './pages/user/Movies';
+import AdminMoviePlayer from './pages/user/AdminMoviePlayer';
+import AdminRoute from './components/AdminRoute';
+import AdminDashboard from './pages/admin/AdminDashboard';
 import './index.css';
 
 function App() {
@@ -25,9 +29,24 @@ function App() {
                         <Dashboard />
                     </ProtectedRoute>
                 } />
+                <Route path="/movies" element={
+                    <ProtectedRoute>
+                        <Movies />
+                    </ProtectedRoute>
+                } />
+                <Route path="/admin/dashboard" element={
+                    <AdminRoute>
+                        <AdminDashboard />
+                    </AdminRoute>
+                } />
                 <Route path="/watch/:movieId" element={
                     <ProtectedRoute>
                         <MoviePlayer />
+                    </ProtectedRoute>
+                } />
+                <Route path="/watch-admin/:adminMovieId" element={
+                    <ProtectedRoute>
+                        <AdminMoviePlayer />
                     </ProtectedRoute>
                 } />
             </Routes>

@@ -30,6 +30,11 @@ public class AuthService {
             throw new IllegalArgumentException("Invalid email format");
         }
 
+        // Prevent creating admin accounts via public registration.
+        if ("admin@cinemarec.local".equalsIgnoreCase(userDto.getEmail())) {
+            throw new IllegalArgumentException("This email is reserved");
+        }
+
         if (userRepository.existsByEmail(userDto.getEmail())) {
             throw new IllegalArgumentException("Email already in use");
         }

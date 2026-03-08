@@ -3,20 +3,26 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FaHome, FaSignInAlt, FaUserPlus, FaFilm, FaChartBar, FaPenAlt, FaQuestionCircle, FaSignOutAlt, FaBars, FaTimes } from 'react-icons/fa';
 import jwt_decode from 'jwt-decode';
 
-const isAuthenticated = () => {
+const getAuthState = () => {
     try {
         const token = localStorage.getItem('token');
-        if (!token) return false;
+        if (!token) return { authenticated: false, role: null, email: null };
         const decoded = jwt_decode(token);
-        if (decoded.exp * 1000 < Date.now()) return false;
-        return true;
+        if (decoded.exp * 1000 < Date.now()) return { authenticated: false, role: null, email: null };
+        return {
+            authenticated: true,
+            role: decoded.role || null,
+            email: decoded.sub || decoded.email || null,
+        };
     } catch {
-        return false;
+        return { authenticated: false, role: null, email: null };
     }
 };
 
 const Navbar = () => {
-    const [authenticated, setAuthenticated] = useState(isAuthenticated);
+    const initialAuth = getAuthState();
+    const [authenticated, setAuthenticated] = useState(initialAuth.authenticated);
+    const [role, setRole] = useState(initialAuth.role);
     const location = useLocation();
     const navigate = useNavigate();
     const [menuOpen, setMenuOpen] = useState(false);
@@ -31,6 +37,7 @@ const Navbar = () => {
         { to: '/dashboard?tab=statistics', icon: FaChartBar, label: 'Statistics' },
         { to: '/dashboard?tab=reviews', icon: FaPenAlt, label: 'Reviews' },
         { to: '/dashboard?tab=quizzes', icon: FaQuestionCircle, label: 'Quizzes' },
+        { to: '/movies', icon: FaFilm, label: 'Movies' },
     ];
 
     useEffect(() => {
@@ -49,7 +56,9 @@ const Navbar = () => {
     }, [menuOpen, logoutMenuOpen]);
 
     useEffect(() => {
-        setAuthenticated(isAuthenticated());
+        const next = getAuthState();
+        setAuthenticated(next.authenticated);
+        setRole(next.role);
     }, [location.pathname]);
 
     const handleLogout = () => {
@@ -57,6 +66,7 @@ const Navbar = () => {
         setMenuOpen(false);
         setLogoutMenuOpen(false);
         setAuthenticated(false);
+        setRole(null);
         navigate('/login');
     };
 
@@ -93,6 +103,15 @@ const Navbar = () => {
                                     <span className="hidden lg:inline">{label}</span>
                                 </Link>
                             ))}
+                            {role === 'ADMIN' && (
+                                <Link
+                                    to="/admin/dashboard"
+                                    className={`${linkClass} px-2 py-1.5 rounded-lg ${location.pathname.startsWith('/admin') ? 'bg-purple-800' : ''}`}
+                                >
+                                    <FaChartBar className="mr-1.5 shrink-0" />
+                                    <span className="hidden lg:inline">Admin</span>
+                                </Link>
+                            )}
                             <div className="relative flex items-center" ref={logoutMenuRef}>
                                 <button
                                     onClick={() => setLogoutMenuOpen(!logoutMenuOpen)}
@@ -150,6 +169,16 @@ const Navbar = () => {
                                             {label}
                                         </Link>
                                     ))}
+                                    {role === 'ADMIN' && (
+                                        <Link
+                                            to="/admin/dashboard"
+                                            onClick={() => setMenuOpen(false)}
+                                            className={`flex items-center w-full px-4 py-2.5 text-white hover:bg-purple-800 transition ${location.pathname.startsWith('/admin') ? 'bg-purple-800' : ''}`}
+                                        >
+                                            <FaChartBar className="mr-3 shrink-0" />
+                                            Admin
+                                        </Link>
+                                    )}
                                     <button
                                         onClick={handleLogout}
                                         className="flex items-center w-full px-4 py-2.5 text-white hover:bg-purple-800 transition border-t border-purple-600"

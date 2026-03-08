@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { FaStar, FaEdit, FaRedo, FaPlay } from 'react-icons/fa';
+import { FaStar, FaEdit, FaRedo, FaPlay, FaEye, FaHeart, FaRegHeart } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 import PreferencesForm from './PreferencesForm';
 import { toast } from 'react-toastify';
@@ -15,7 +15,19 @@ const MovieRecommendations = ({ email }) => {
   const [movieDetails, setMovieDetails] = useState(null);
   const [detailsLoading, setDetailsLoading] = useState(false);
   const [detailsError, setDetailsError] = useState(null);
+  const [favoriteMovieIds, setFavoriteMovieIds] = useState([]);
+  const [watchedMovieIds, setWatchedMovieIds] = useState([]);
   const sectionRefs = useRef({ actors: null, genres: null, directors: null, movies: null });
+
+  const favoriteIdSet = useMemo(
+    () => new Set((favoriteMovieIds || []).map((id) => Number(id)).filter(Boolean)),
+    [favoriteMovieIds]
+  );
+
+  const watchedIdSet = useMemo(
+    () => new Set((watchedMovieIds || []).map((id) => Number(id)).filter(Boolean)),
+    [watchedMovieIds]
+  );
 
   const fetchRecommendations = async () => {
     try {
@@ -37,9 +49,39 @@ const MovieRecommendations = ({ email }) => {
         `http://localhost:8082/users/${email}/preferences`
       );
       setHasPreferences(response.data !== null);
+      const pref = response.data?.preferences ?? response.data;
+      setFavoriteMovieIds(pref?.favoriteMovies || []);
     } catch (error) {
       console.error('Error checking preferences:', error);
       setHasPreferences(false);
+      setFavoriteMovieIds([]);
+    }
+  };
+
+  const toggleFavoriteMovie = async (movieId) => {
+    try {
+      const prefsRes = await axios.get(`http://localhost:8082/users/${email}/preferences`);
+      const pref = prefsRes.data?.preferences ?? prefsRes.data ?? {};
+      const current = (pref.favoriteMovies || []).map((id) => Number(id)).filter(Boolean);
+      const idNum = Number(movieId);
+      const next = current.includes(idNum)
+        ? current.filter((id) => id !== idNum)
+        : [...current, idNum];
+
+      const payload = {
+        favoriteGenres: pref.favoriteGenres || [],
+        favoriteActors: pref.favoriteActors || [],
+        favoriteDirectors: pref.favoriteDirectors || [],
+        favoriteMovies: next,
+        minRating: pref.minRating ?? 7,
+      };
+
+      await axios.put(`http://localhost:8082/users/${email}/preferences`, payload);
+      setFavoriteMovieIds(next);
+      toast.success(current.includes(idNum) ? 'Removed from favorites' : 'Added to favorites');
+    } catch (e) {
+      console.error('Error toggling favorite movie:', e);
+      toast.error('Failed to update favorites');
     }
   };
 
@@ -72,6 +114,24 @@ const MovieRecommendations = ({ email }) => {
   }, [email]);
 
   useEffect(() => {
+    const loadWatched = async () => {
+      if (!email) return;
+      try {
+        const res = await axios.get(
+          `http://localhost:8088/statistics/watched?email=${encodeURIComponent(email)}`
+        );
+        const ids = (res.data || [])
+          .map((m) => Number(m?.movieId))
+          .filter(Boolean);
+        setWatchedMovieIds(ids);
+      } catch {
+        setWatchedMovieIds([]);
+      }
+    };
+    loadWatched();
+  }, [email]);
+
+  useEffect(() => {
     if (!showPreferences && hasPreferences) {
       fetchRecommendations();
     }
@@ -86,7 +146,11 @@ const MovieRecommendations = ({ email }) => {
   const handleMarkAsWatched = async (movieId) => {
     try {
       await axios.post(
-        `http://localhost:8082/users/${email}/recommendations/${movieId}/watched`
+        `http://localhost:8088/statistics/watched?email=${encodeURIComponent(email)}`,
+        { movieId: Number(movieId) }
+      );
+      setWatchedMovieIds((prev) =>
+        prev.includes(Number(movieId)) ? prev : [...prev, Number(movieId)]
       );
       setRecommendations(prev =>
         prev.map(movie =>
@@ -95,6 +159,22 @@ const MovieRecommendations = ({ email }) => {
       );
     } catch (error) {
       console.error('Error marking as watched:', error);
+    }
+  };
+
+  const handleUnmarkAsWatched = async (movieId) => {
+    try {
+      await axios.delete(
+        `http://localhost:8088/statistics/watched/${movieId}?email=${encodeURIComponent(email)}`
+      );
+      setWatchedMovieIds((prev) => prev.filter((id) => Number(id) !== Number(movieId)));
+      setRecommendations(prev =>
+        prev.map(movie =>
+          movie.movieId === movieId ? { ...movie, watched: false } : movie
+        )
+      );
+    } catch (error) {
+      console.error('Error unmarking as watched:', error);
     }
   };
 
@@ -248,6 +328,10 @@ const MovieRecommendations = ({ email }) => {
                     movie={movie}
                     email={email}
                     onMarkAsWatched={handleMarkAsWatched}
+                    onUnmarkAsWatched={handleUnmarkAsWatched}
+                    onToggleFavorite={toggleFavoriteMovie}
+                    isFavorite={favoriteIdSet.has(Number(movie.movieId))}
+                    isWatched={watchedIdSet.has(Number(movie.movieId)) || !!movie.watched}
                     onClick={() => setSelectedMovie(movie)}
                   />
                 ))}
@@ -265,6 +349,10 @@ const MovieRecommendations = ({ email }) => {
                     movie={movie}
                     email={email}
                     onMarkAsWatched={handleMarkAsWatched}
+                    onUnmarkAsWatched={handleUnmarkAsWatched}
+                    onToggleFavorite={toggleFavoriteMovie}
+                    isFavorite={favoriteIdSet.has(Number(movie.movieId))}
+                    isWatched={watchedIdSet.has(Number(movie.movieId)) || !!movie.watched}
                     onClick={() => setSelectedMovie(movie)}
                   />
                 ))}
@@ -282,6 +370,10 @@ const MovieRecommendations = ({ email }) => {
                     movie={movie}
                     email={email}
                     onMarkAsWatched={handleMarkAsWatched}
+                    onUnmarkAsWatched={handleUnmarkAsWatched}
+                    onToggleFavorite={toggleFavoriteMovie}
+                    isFavorite={favoriteIdSet.has(Number(movie.movieId))}
+                    isWatched={watchedIdSet.has(Number(movie.movieId)) || !!movie.watched}
                     onClick={() => setSelectedMovie(movie)}
                   />
                 ))}
@@ -299,6 +391,10 @@ const MovieRecommendations = ({ email }) => {
                     movie={movie}
                     email={email}
                     onMarkAsWatched={handleMarkAsWatched}
+                    onUnmarkAsWatched={handleUnmarkAsWatched}
+                    onToggleFavorite={toggleFavoriteMovie}
+                    isFavorite={favoriteIdSet.has(Number(movie.movieId))}
+                    isWatched={watchedIdSet.has(Number(movie.movieId)) || !!movie.watched}
                     onClick={() => setSelectedMovie(movie)}
                   />
                 ))}
@@ -423,12 +519,30 @@ const MovieRecommendations = ({ email }) => {
   );
 };
 
-const MovieCard = ({ movie, email, onMarkAsWatched, onClick }) => {
+const MovieCard = ({ movie, email, onMarkAsWatched, onUnmarkAsWatched, onToggleFavorite, isFavorite, isWatched, onClick }) => {
   const navigate = useNavigate();
 
   const handleWatch = (e) => {
     e.stopPropagation();
     navigate(`/watch/${movie.movieId}?email=${encodeURIComponent(email)}`);
+  };
+
+  const handleMarkWatched = (e) => {
+    e.stopPropagation();
+    if (movie?.movieId == null || isWatched) return;
+    onMarkAsWatched?.(movie.movieId);
+  };
+
+  const handleUnmarkWatched = (e) => {
+    e.stopPropagation();
+    if (movie?.movieId == null || !isWatched) return;
+    onUnmarkAsWatched?.(movie.movieId);
+  };
+
+  const handleToggleFavorite = (e) => {
+    e.stopPropagation();
+    if (movie?.movieId == null) return;
+    onToggleFavorite?.(movie.movieId);
   };
 
   const posterSrc = (email != null && movie.movieId != null)
@@ -438,9 +552,23 @@ const MovieCard = ({ movie, email, onMarkAsWatched, onClick }) => {
   return (
     <motion.div
       whileHover={{ scale: 1.03 }}
-      className="bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer flex flex-col w-full min-w-0"
+      className="bg-white rounded-lg overflow-hidden shadow-lg cursor-pointer flex flex-col w-full min-w-0 relative"
       onClick={onClick}
     >
+      {/* Watched badge - абсолютное позиционирование, не влияет на поток */}
+      {isWatched && (
+        <button
+          type="button"
+          onClick={handleUnmarkWatched}
+          className="absolute left-2 top-2 z-20 inline-flex items-center gap-1 rounded-full bg-purple-300 text-purple-900 px-2 py-1 text-[11px] font-semibold shadow hover:bg-purple-400 transition"
+          aria-label="Unmark watched"
+        >
+          <FaEye className="text-[11px]" />
+          Watched
+        </button>
+      )}
+
+      {/* Постер */}
       <div className="relative w-full aspect-[2/3] flex-shrink-0 overflow-hidden bg-gray-200">
         <img
           src={posterSrc}
@@ -448,30 +576,80 @@ const MovieCard = ({ movie, email, onMarkAsWatched, onClick }) => {
           className="w-full h-full object-cover object-center"
           onError={(e) => { e.target.onerror = null; e.target.src = 'https://via.placeholder.com/500x750?text=No+Image'; }}
         />
-        <div className="absolute inset-x-0 bottom-2 flex justify-center z-10">
-          <button
-            onClick={handleWatch}
-            className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-lg flex items-center transition shadow-lg text-xs sm:text-sm"
-          >
-            <FaPlay className="mr-1.5 sm:mr-2 shrink-0" />
-            Watch
-          </button>
-        </div>
       </div>
-      <div className="flex-shrink-0 min-h-[4.5rem] overflow-hidden p-2 sm:p-3 flex flex-col min-w-0 border-t border-gray-100">
-        <div className="flex justify-between items-center gap-2 min-w-0 mb-0.5">
-          <h3 className="text-sm sm:text-base font-bold truncate min-w-0" title={movie.movieTitle}>{movie.movieTitle}</h3>
-          <span className="flex items-center text-yellow-500 shrink-0 text-sm">
+
+      {/* Блок с информацией о фильме */}
+      <div className="p-3 flex flex-col flex-1">
+        {/* Заголовок и рейтинг */}
+        <div className="flex justify-between items-start gap-2 mb-1">
+          <h3 className="text-sm font-bold line-clamp-2 flex-1" title={movie.movieTitle}>
+            {movie.movieTitle}
+          </h3>
+          <span className="flex items-center text-yellow-500 shrink-0 text-sm ml-1">
             <FaStar className="mr-1" />
             {movie.rating?.toFixed(1) || 'N/A'}
           </span>
         </div>
-        <p className="text-gray-600 text-sm truncate min-w-0" title={movie.genres?.trim() || 'No genres'}>
+
+        {/* Жанры */}
+        <p className="text-gray-600 text-xs truncate mb-1" title={movie.genres?.trim() || 'No genres'}>
           {movie.genres?.trim() ? movie.genres : 'No genres'}
         </p>
-        <p className="text-gray-700 text-sm line-clamp-2 min-w-0 mt-0.5 leading-tight" title={movie.overview || 'No description available'}>
+
+        {/* Описание - занимает доступное место, но не выталкивает кнопки */}
+        <p className="text-gray-700 text-xs line-clamp-2 mb-3 flex-1" title={movie.overview || 'No description available'}>
           {movie.overview || 'No description available'}
         </p>
+
+        {/* Кнопки действий - всегда внизу, фиксированная высота */}
+        <div className="flex items-center justify-end gap-2 mt-auto pt-1 min-h-[40px]">
+          {/* Кнопка Watch - всегда видима */}
+          <button
+            type="button"
+            onClick={handleWatch}
+            className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1.5 rounded-full flex items-center transition shadow text-xs"
+          >
+            <FaPlay className="mr-1.5 shrink-0" />
+            Watch
+          </button>
+
+          {/* Кнопка Mark as watched / пустое место для сохранения layout */}
+          <div className="w-[36px] h-[36px] flex items-center justify-center">
+            {!isWatched ? (
+              <div className="relative group/btn">
+                <button
+                  type="button"
+                  onClick={handleMarkWatched}
+                  className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 text-purple-800 shadow flex items-center justify-center"
+                  aria-label="Mark as watched"
+                >
+                  <FaEye size={16} />
+                </button>
+                <span className="pointer-events-none opacity-0 group-hover/btn:opacity-100 transition-opacity delay-700 absolute -top-9 right-0 bg-black text-white text-[11px] px-2 py-1 rounded whitespace-nowrap z-30">
+                  Mark as watched
+                </span>
+              </div>
+            ) : (
+              // Пустой div для сохранения места, когда кнопка скрыта
+              <div className="w-[36px] h-[36px]" />
+            )}
+          </div>
+
+          {/* Кнопка Favorite */}
+          <div className="relative group/btn">
+            <button
+              type="button"
+              onClick={handleToggleFavorite}
+              className="p-2 rounded-full bg-gray-100 hover:bg-gray-200 text-pink-600 shadow flex items-бjustify-center"
+              aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            >
+              {isFavorite ? <FaHeart size={16} /> : <FaRegHeart size={16} />}
+            </button>
+            <span className="pointer-events-none opacity-0 group-hover/btn:opacity-100 transition-opacity delay-700 absolute -top-9 right-0 bg-black text-white text-[11px] px-2 py-1 rounded whitespace-nowrap z-30">
+              {isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            </span>
+          </div>
+        </div>
       </div>
     </motion.div>
   );

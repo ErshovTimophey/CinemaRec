@@ -45,14 +45,20 @@ if %BUILD_FAILED%==1 (
 
 echo.
 
-REM Step 2: Build all services in parallel (they don't depend on each other)
+REM Step 2: api-grpc is built manually via short (8.3) path to avoid protoc issues with Cyrillic in paths.
 echo ========================================
-echo Step 2: Building all services...
+echo Step 2: Skipping api-grpc (already built manually)
 echo ========================================
 echo.
 
-REM List of services to build
-set SERVICES=auth-service user-service statistics-service recommendation-service review-service image-storage-service quiz-service proxy-service
+REM Step 3: Build all services
+echo ========================================
+echo Step 3: Building all services...
+echo ========================================
+echo.
+
+REM List of services to build (api-grpc already built in Step 2)
+set SERVICES=auth-service user-service statistics-service recommendation-service review-service image-storage-service quiz-service proxy-service playback-service
 
 for %%S in (%SERVICES%) do (
     echo ----------------------------------------
