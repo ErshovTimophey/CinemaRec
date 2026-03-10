@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.example.cinemarec.grpc.recommendation";
+
+service RecommendationService {
+  rpc GetRecommendations(GetRecommendationsRequest) returns (GetRecommendationsResponse);
+}
+
+message GetRecommendationsRequest {
+  string email = 1;
+}
+
+message GetRecommendationsResponse {
+  repeated RecommendationItem items = 1;
+}
+
+message RecommendationItem {
+  int64 id = 1;
+  string email = 2;
+  int32 movie_id = 3;
+  string movie_title = 4;
+  string poster_url = 5;
+  double rating = 6;
+  string overview = 7;
+  string genres = 8;
+  bool watched = 9;
+  string category = 10;
+  string recommended_at = 11;  // ISO-8601
+}

@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "com.example.cinemarec.grpc.imagestorage";
+
+service ImageStorageService {
+  rpc UploadImage(UploadImageRequest) returns (UploadImageResponse);
+  rpc DeleteImage(DeleteImageRequest) returns (DeleteImageResponse);
+}
+
+message UploadImageRequest {
+  bytes image_data = 1;
+  string file_name = 2;
+}
+
+message UploadImageResponse {
+  string image_url = 1;
+}
+
+message DeleteImageRequest {
+  string image_url = 1;
+}
+
+message DeleteImageResponse {
+}

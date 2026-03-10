@@ -1,5 +1,7 @@
 package com.example.userservice.service;
 
+import com.example.cinemarec.grpc.recommendation.GetRecommendationsRequest;
+import com.example.cinemarec.grpc.recommendation.RecommendationServiceGrpc;
 import com.example.dto.PreferencesEvent;
 import com.example.userservice.dto.GetPreferencesDTO;
 import com.example.userservice.dto.PreferencesResponseDTO;
@@ -7,30 +9,37 @@ import com.example.userservice.dto.RecommendationDto;
 import com.example.userservice.model.User;
 import com.example.userservice.model.UserPreferences;
 import com.example.userservice.repository.UserRepository;
+import io.grpc.StatusRuntimeException;
 import lombok.RequiredArgsConstructor;
+import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
-import com.example.userservice.recommendation.RecommendationClient;
 import org.springframework.web.client.RestTemplate;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
 public class UserService {
 
+    private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
+
     private final UserRepository userRepository;
-    @Autowired
-    private final RecommendationClient recommendationClient;
+
+    @GrpcClient("recommendation-service")
+    private RecommendationServiceGrpc.RecommendationServiceBlockingStub recommendationStub;
 
     @Autowired
-    private final RestTemplate restTemplate;
-
+    private RestTemplate restTemplate;
 
     @Autowired
-    private final KafkaTemplate<String, PreferencesEvent> kafkaTemplate;
+    private KafkaTemplate<String, PreferencesEvent> kafkaTemplate;
 
     public User getUserByEmail(String email) {
         return userRepository.findByEmail(email)
@@ -38,7 +47,33 @@ public class UserService {
     }
 
     public List<RecommendationDto> getUserRecommendations(String email) {
-        return recommendationClient.getRecommendations(email);
+        try {
+            var response = recommendationStub.getRecommendations(
+                    GetRecommendationsRequest.newBuilder().setEmail(email).build());
+            return response.getItemsList().stream()
+                    .map(item -> {
+                        RecommendationDto dto = new RecommendationDto();
+                        dto.setId(item.getId());
+                        dto.setEmail(item.getEmail());
+                        dto.setMovieId(item.getMovieId());
+                        dto.setMovieTitle(item.getMovieTitle());
+                        dto.setPosterUrl(item.getPosterUrl());
+                        dto.setRating(item.getRating());
+                        dto.setOverview(item.getOverview());
+                        dto.setGenres(item.getGenres());
+                        dto.setWatched(item.getWatched());
+                        dto.setCategory(item.getCategory());
+                        if (!item.getRecommendedAt().isEmpty()) {
+                            try {
+                                dto.setRecommendedAt(LocalDateTime.parse(item.getRecommendedAt(), ISO));
+                            } catch (Exception ignored) {}
+                        }
+                        return dto;
+                    })
+                    .collect(Collectors.toList());
+        } catch (StatusRuntimeException e) {
+            throw new RuntimeException("gRPC recommendation-service failed: " + e.getStatus(), e);
+        }
     }
 
     public void refreshRecommendations(String email) {

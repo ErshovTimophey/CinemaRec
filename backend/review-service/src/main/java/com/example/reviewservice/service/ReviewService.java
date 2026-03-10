@@ -1,9 +1,14 @@
 package com.example.reviewservice.service;
 
-import com.example.reviewservice.client.ImageStorageClient;
+import com.example.cinemarec.grpc.imagestorage.DeleteImageRequest;
+import com.example.cinemarec.grpc.imagestorage.ImageStorageServiceGrpc;
+import com.example.cinemarec.grpc.imagestorage.UploadImageRequest;
 import com.example.reviewservice.dto.ReviewDTO;
 import com.example.reviewservice.model.Review;
 import com.example.reviewservice.repository.ReviewRepository;
+import com.google.protobuf.ByteString;
+import io.grpc.StatusRuntimeException;
+import net.devh.boot.grpc.client.inject.GrpcClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,8 +27,8 @@ public class ReviewService {
     @Autowired
     private ReviewRepository reviewRepository;
 
-    @Autowired
-    private ImageStorageClient imageStorageClient;
+    @GrpcClient("image-storage-service")
+    private ImageStorageServiceGrpc.ImageStorageServiceBlockingStub imageStorageStub;
 
     public List<ReviewDTO> getAllReviews() {
         logger.info("Fetching all reviews from repository");
@@ -43,7 +48,7 @@ public class ReviewService {
             List<String> imageUrls = new ArrayList<>();
             for (MultipartFile image : reviewDTO.getImages()) {
                 if (!image.isEmpty()) {
-                    String imageUrl = imageStorageClient.uploadImage(image);
+                    String imageUrl = uploadImageViaGrpc(image);
                     imageUrls.add(imageUrl);
                     logger.info("Uploaded image: {}", imageUrl);
                 }
@@ -74,8 +79,7 @@ public class ReviewService {
             for (String deletedUrl : reviewDTO.getDeletedImageUrls()) {
                 imageUrls.remove(deletedUrl);
                 logger.info("Removed image URL: {}", deletedUrl);
-                // Optionally, notify ImageStorageClient to delete the image
-                imageStorageClient.deleteImage(deletedUrl);
+                deleteImageViaGrpc(deletedUrl);
             }
         }
 
@@ -83,7 +87,7 @@ public class ReviewService {
         if (!reviewDTO.getImages().isEmpty()) {
             for (MultipartFile image : reviewDTO.getImages()) {
                 if (!image.isEmpty()) {
-                    String imageUrl = imageStorageClient.uploadImage(image);
+                    String imageUrl = uploadImageViaGrpc(image);
                     imageUrls.add(imageUrl);
                     logger.info("Uploaded new image: {}", imageUrl);
                 }
@@ -110,6 +114,25 @@ public class ReviewService {
         return reviewRepository.findById(id)
                 .map(review -> review.getUserEmail().equals(userEmail))
                 .orElse(false);
+    }
+
+    private String uploadImageViaGrpc(MultipartFile image) {
+        try {
+            return imageStorageStub.uploadImage(UploadImageRequest.newBuilder()
+                    .setImageData(ByteString.copyFrom(image.getBytes()))
+                    .setFileName(image.getOriginalFilename() != null ? image.getOriginalFilename() : "image")
+                    .build()).getImageUrl();
+        } catch (Exception e) {
+            throw new RuntimeException("gRPC image-storage upload failed", e);
+        }
+    }
+
+    private void deleteImageViaGrpc(String imageUrl) {
+        try {
+            imageStorageStub.deleteImage(DeleteImageRequest.newBuilder().setImageUrl(imageUrl).build());
+        } catch (StatusRuntimeException e) {
+            logger.warn("gRPC image-storage delete failed for {}: {}", imageUrl, e.getStatus());
+        }
     }
 
     private ReviewDTO convertToDTO(Review review) {

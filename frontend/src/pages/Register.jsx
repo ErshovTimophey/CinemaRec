@@ -12,13 +12,19 @@ const Register = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
+            // Регистрация не должна автоматически логинить пользователя.
+            // Иначе (особенно для ADMIN) получается "автовход" без явного логина.
+            localStorage.removeItem('token');
             const response = await axios.post('http://localhost:8081/auth/register', {
                 email,
                 password,
             });
-            localStorage.setItem('token', response.data.token);
-            alert('Registration successful!');
-            navigate('/');
+            // НЕ сохраняем token после регистрации — пусть пользователь войдёт вручную.
+            if (response?.data?.token) {
+                console.warn('Register returned token; ignoring it to avoid auto-login');
+            }
+            alert('Registration successful! Please log in.');
+            navigate('/login', { replace: true });
         } catch (error) {
             console.error(error);
             alert('Registration failed!'+ error.message);

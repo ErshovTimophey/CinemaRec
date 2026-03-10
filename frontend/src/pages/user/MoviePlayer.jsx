@@ -37,7 +37,7 @@ const MoviePlayer = () => {
         
         // Fetch movie details
         const detailsResponse = await axios.get(
-          `http://localhost:8088/statistics/movies/${movieId}?email=${encodeURIComponent(email)}`
+          `http://localhost:8090/playback/movies/${movieId}?email=${encodeURIComponent(email)}`
         );
         
         console.log('Movie details response:', detailsResponse.data);
@@ -50,7 +50,7 @@ const MoviePlayer = () => {
 
         // Fetch movie videos (this is optional, so we don't fail if it errors)
         try {
-          const videosUrl = `http://localhost:8088/statistics/movies/${movieId}/videos?email=${encodeURIComponent(email)}`;
+          const videosUrl = `http://localhost:8090/playback/movies/${movieId}/videos?email=${encodeURIComponent(email)}`;
           console.log('Fetching videos from URL:', videosUrl);
           
           const videosResponse = await axios.get(videosUrl);
@@ -179,7 +179,7 @@ const MoviePlayer = () => {
             <div className="flex flex-col md:flex-row gap-6">
               {movieDetails.posterPath && (
                 <img
-                  src={`http://localhost:8088/tmdb/movies/${movieId}/poster`}
+                  src={`http://localhost:8090/playback/movies/${movieId}/poster`}
                   alt={movieDetails.title}
                   className="w-full md:w-64 h-auto rounded-lg shadow-lg"
                 />

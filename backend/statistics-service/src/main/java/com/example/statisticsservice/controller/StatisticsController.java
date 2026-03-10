@@ -1,7 +1,6 @@
 package com.example.statisticsservice.controller;
 
 import com.example.statisticsservice.dto.MovieDetails;
-import com.example.statisticsservice.dto.MovieVideo;
 import com.example.statisticsservice.dto.StatisticsResponse;
 import com.example.statisticsservice.dto.TmdbMovie;
 import com.example.statisticsservice.model.WatchedMovie;
@@ -24,23 +23,14 @@ public class StatisticsController {
     private final StatisticsService statisticsService;
     private final TmdbService tmdbService;
 
-    // Constructor to log when controller is initialized
     {
         log.info("=== StatisticsController initialized ===");
-        log.info("=== Test endpoint available at /statistics/test-videos ===");
-        log.info("=== Videos endpoint available at /statistics/movies/{movieId}/videos ===");
     }
 
     @GetMapping
     public ResponseEntity<StatisticsResponse> getStatistics(@RequestParam String email) {
         StatisticsResponse stats = statisticsService.getStatistics(email);
         return ResponseEntity.ok(stats);
-    }
-
-    @GetMapping("/test-videos")
-    public ResponseEntity<String> testVideos() {
-        log.info("TEST: Videos endpoint is accessible");
-        return ResponseEntity.ok("Videos endpoint is working!");
     }
 
     @GetMapping("/watched")
@@ -76,22 +66,6 @@ public class StatisticsController {
             @RequestParam(defaultValue = "1") int page) {
         List<TmdbMovie> movies = tmdbService.searchMovies(query, page);
         return ResponseEntity.ok(movies);
-    }
-
-    // More specific route must come before less specific one
-    @GetMapping(value = "/movies/{movieId}/videos", produces = "application/json")
-    public ResponseEntity<List<MovieVideo>> getMovieVideos(
-            @RequestParam(required = false) String email,
-            @PathVariable Integer movieId) {
-        log.info("=== VIDEO ENDPOINT CALLED === Received request for videos - movieId: {}, email: {}", movieId, email);
-        try {
-            List<MovieVideo> videos = tmdbService.getMovieVideos(movieId);
-            log.info("Returning {} videos for movieId: {}", videos.size(), movieId);
-            return ResponseEntity.ok(videos);
-        } catch (Exception e) {
-            log.error("Error in getMovieVideos endpoint", e);
-            return ResponseEntity.status(500).build();
-        }
     }
 
     @GetMapping("/movies/{movieId}")
